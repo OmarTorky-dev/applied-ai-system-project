@@ -1,0 +1,15 @@
+$ GEMINI_MODEL=gemini-3.5-flash-lite python investigate.py samples/haywire_scoring.py --mode record --provider gemini
+
+=== Glitch Investigator run 589827bf  [gemini (gemini-3.5-flash-lite) [recording]] ===
+🛡️  GUARD     Input passed static safety and contract checks.
+🧪 TEST      Baseline: 14/16 tests passed
+📚 RETRIEVE  Attempt 1: KB04 (0.42), KB03 (0.40), KB07 (0.32)
+🤖 PROPOSE   Attempt 1: LLM error: Gemini API error 503: This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.
+📋 REPORT    The AI could not produce a fix: Gemini API error 503: This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.
+
+--- Result ---
+Status      : ERROR
+Confidence  : 0.00
+Tests       : before = 14/16 tests passed | after = 14/16 tests passed
+Summary     : The AI could not produce a fix: Gemini API error 503: This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.
+[exit code 1]

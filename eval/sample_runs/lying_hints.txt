@@ -1,27 +1,27 @@
-$ python investigate.py samples/lying_hints.py --mode record --provider gemini
+$ GEMINI_MODEL=gemini-3.5-flash-lite python investigate.py samples/lying_hints.py --mode record --provider gemini
 
-=== Glitch Investigator run fc6ca7fa  [gemini (gemini-3.6-flash) [recording]] ===
+=== Glitch Investigator run c2ad25ed  [gemini (gemini-3.5-flash-lite) [recording]] ===
 🛡️  GUARD     Input passed static safety and contract checks.
-🧪 TEST      Baseline: 11/15 tests passed
-📚 RETRIEVE  Attempt 1: KB02 (0.54), KB01 (0.37), KB07 (0.25)
+🧪 TEST      Baseline: 12/16 tests passed
+📚 RETRIEVE  Attempt 1: KB02 (0.53), KB01 (0.37), KB07 (0.26)
 🤖 PROPOSE   Attempt 1: model cites ['KB01', 'KB02'], self-confidence 1.00
 ✅ VALIDATE  Proposed fix passed guardrails and scope check.
-🔁 VERIFY    Attempt 1: 15/15 tests passed
+🔁 VERIFY    Attempt 1: 16/16 tests passed
 📋 REPORT    FIXED (confidence 1.00)
 
 --- Result ---
 Status      : FIXED
 Confidence  : 1.00
-Tests       : before = 11/15 tests passed | after = 15/15 tests passed
+Tests       : before = 12/16 tests passed | after = 16/16 tests passed
 Grounded in : KB01, KB02
-Summary     : Fixed in 1 attempt(s): 15/15 tests passed. Review the diff before applying.
+Summary     : Fixed in 1 attempt(s): 16/16 tests passed. Review the diff before applying.
 
 Diagnosis:
-In `check_guess`, `guess` and `secret` were converted to strings before comparison (`g, s = str(guess), str(secret)`), leading to string lexicographical comparisons where e.g. "9" > "50". Additionally, the hint messages were swapped: when `guess > secret` ("Too High"), the message incorrectly advised "Go HIGHER!", and when `guess < secret` ("Too Low"), it incorrectly advised "Go LOWER!".
+The check_guess function had two bugs: first, it converted guess and secret to strings before comparing them, causing lexicographic string comparisons instead of numerical ones (KB01). Second, the hint messages and symbols for 'Too High' and 'Too Low' were swapped (KB02).
 
 Changes:
-  - Removed string conversion in `check_guess` so `guess` and `secret` are compared numerically.
-  - Swapped hint messages in `check_guess` so 'Too High' suggests '📉 Go LOWER!' and 'Too Low' suggests '📈 Go HIGHER!'.
+  - Removed string conversion of guess and secret in check_guess so numbers are compared numerically.
+  - Swapped the return messages in check_guess so that 'Too High' returns '📉 Go LOWER!' and 'Too Low' returns '📈 Go HIGHER!'.
 
 Proposed diff:
 --- logic_utils.py (submitted)
@@ -34,6 +34,15 @@ Proposed diff:
  def get_range_for_difficulty(difficulty: str):
      if difficulty == "Easy":
          return 1, 20
+@@ -20,7 +16,7 @@
+         return False, None, "Enter a guess."
+     try:
+         value = int(float(raw)) if "." in raw else int(raw)
+-    except (ValueError, OverflowError):  # OverflowError: float("1e400") is inf, int(inf) raises
++    except (ValueError, OverflowError):
+         return False, None, "That is not a number."
+     return True, value, None
+ 
 @@ -28,10 +24,9 @@
  def check_guess(guess, secret):
      if guess == secret:
@@ -48,5 +57,10 @@ Proposed diff:
  
  
  def update_score(current_score: int, outcome: str, attempt_number: int):
-
+@@ -42,4 +37,4 @@
+         return current_score + points
+     if outcome in ("Too High", "Too Low"):
+         return current_score - 5
+-    return current_score
++    return current_score
 [exit code 0]

@@ -1,0 +1,9 @@
+v1 Gemini fixes (recorded in eval/v1_15_tests/recordings) re-tested with the 16-test oracle
+
+recordings\1298503e946787f9.json  cites ['KB05', 'KB07']: 15/16 tests passed  failing=['test_parse_guess_never_crashes_on_any_text']
+     OverflowError: cannot convert float infinity to integer
+recordings\88141acbd2e68fda.json  cites ['KB01', 'KB02', 'KB05']: 16/16 tests passed  failing=[]
+recordings\8c5421b3031ccffb.json  cites ['KB01', 'KB02']: 15/16 tests passed  failing=['test_parse_guess_never_crashes_on_any_text']
+     OverflowError: cannot convert float infinity to integer
+recordings\9bd67c72179fcbe8.json  cites ['KB03', 'KB04']: 15/16 tests passed  failing=['test_parse_guess_never_crashes_on_any_text']
+     OverflowError: cannot convert float infinity to integer

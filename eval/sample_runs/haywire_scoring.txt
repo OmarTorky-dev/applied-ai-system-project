@@ -1,27 +1,27 @@
-$ python investigate.py samples/haywire_scoring.py --mode record --provider gemini
+$ GEMINI_MODEL=gemini-3.5-flash-lite python investigate.py samples/haywire_scoring.py --mode record --provider gemini
 
-=== Glitch Investigator run 99bdb4a6  [gemini (gemini-3.6-flash) [recording]] ===
+=== Glitch Investigator run 32dd3caa  [gemini (gemini-3.5-flash-lite) [recording]] ===
 🛡️  GUARD     Input passed static safety and contract checks.
-🧪 TEST      Baseline: 13/15 tests passed
-📚 RETRIEVE  Attempt 1: KB04 (0.43), KB03 (0.41), KB07 (0.30)
-🤖 PROPOSE   Attempt 1: model cites ['KB03', 'KB04'], self-confidence 1.00
+🧪 TEST      Baseline: 14/16 tests passed
+📚 RETRIEVE  Attempt 1: KB04 (0.42), KB03 (0.40), KB07 (0.32)
+🤖 PROPOSE   Attempt 1: model cites ['KB04', 'KB03'], self-confidence 1.00
 ✅ VALIDATE  Proposed fix passed guardrails and scope check.
-🔁 VERIFY    Attempt 1: 15/15 tests passed
+🔁 VERIFY    Attempt 1: 16/16 tests passed
 📋 REPORT    FIXED (confidence 1.00)
 
 --- Result ---
 Status      : FIXED
 Confidence  : 1.00
-Tests       : before = 13/15 tests passed | after = 15/15 tests passed
-Grounded in : KB03, KB04
-Summary     : Fixed in 1 attempt(s): 15/15 tests passed. Review the diff before applying.
+Tests       : before = 14/16 tests passed | after = 16/16 tests passed
+Grounded in : KB04, KB03
+Summary     : Fixed in 1 attempt(s): 16/16 tests passed. Review the diff before applying.
 
 Diagnosis:
-In update_score, win bonus calculation used (attempt_number + 1) instead of (attempt_number - 1), causing a first-try win to score 80 points instead of 100. Additionally, an attempt_number parity check caused 'Too High' outcomes on even attempts to add 5 points to the score instead of subtracting 5 points.
+The test test_wrong_guess_never_adds_points fails because update_score adds 5 points on even attempts for 'Too High' outcomes due to a parity check. The test test_first_try_win_scores_100 fails because the win bonus formula uses attempt_number + 1 instead of attempt_number - 1, causing a first-try win on attempt 1 to compute 100 - 10 * 2 = 80 instead of 100.
 
 Changes:
-  - Corrected win bonus calculation formula in update_score to use 100 - 10 * (attempt_number - 1).
-  - Removed parity check in update_score so both 'Too High' and 'Too Low' outcomes deduct 5 points regardless of attempt number.
+  - Fixed update_score win bonus formula to use 100 - 10 * (attempt_number - 1) so attempt 1 earns 100 points.
+  - Removed the parity check in update_score for 'Too High' so that wrong guesses ('Too High' and 'Too Low') consistently subtract 5 points.
 
 Proposed diff:
 --- logic_utils.py (submitted)
@@ -34,7 +34,16 @@ Proposed diff:
  def get_range_for_difficulty(difficulty: str):
      if difficulty == "Easy":
          return 1, 20
-@@ -35,14 +31,10 @@
+@@ -20,7 +16,7 @@
+         return False, None, "Enter a guess."
+     try:
+         value = int(float(raw)) if "." in raw else int(raw)
+-    except (ValueError, OverflowError):  # OverflowError: float("1e400") is inf, int(inf) raises
++    except (ValueError, OverflowError):
+         return False, None, "That is not a number."
+     return True, value, None
+ 
+@@ -35,13 +31,11 @@
  
  def update_score(current_score: int, outcome: str, attempt_number: int):
      if outcome == "Win":
@@ -43,13 +52,11 @@ Proposed diff:
          if points < 10:
              points = 10
          return current_score + points
--    if outcome == "Too High":
+     if outcome == "Too High":
 -        if attempt_number % 2 == 0:
 -            return current_score + 5
--        return current_score - 5
--    if outcome == "Too Low":
-+    if outcome == "Too High" or outcome == "Too Low":
          return current_score - 5
-     return current_score
+     if outcome == "Too Low":
+         return current_score - 5
 
 [exit code 0]

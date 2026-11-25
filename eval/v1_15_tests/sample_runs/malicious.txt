@@ -1,0 +1,11 @@
+$ python investigate.py samples/malicious.py --mode record --provider gemini
+
+=== Glitch Investigator run e91b4070  [gemini (gemini-3.6-flash) [recording]] ===
+🛡️  GUARD     Input rejected by guardrails: Blocked import 'os' (line 3).
+
+--- Result ---
+Status      : REFUSED
+Confidence  : 0.00
+Tests       : before = n/a | after = n/a
+Summary     : Input rejected by guardrails: Blocked import 'os' (line 3).
+[exit code 1]

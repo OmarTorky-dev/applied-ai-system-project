@@ -1,0 +1,16 @@
+{
+  "model": "gemini (gemini-3.5-flash-lite)",
+  "proposal": {
+    "diagnosis": "The test test_wrong_guess_never_adds_points fails because update_score adds 5 points on even attempts for 'Too High' outcomes due to a parity check. The test test_first_try_win_scores_100 fails because the win bonus formula uses attempt_number + 1 instead of attempt_number - 1, causing a first-try win on attempt 1 to compute 100 - 10 * 2 = 80 instead of 100.",
+    "cited_patterns": [
+      "KB04",
+      "KB03"
+    ],
+    "changes": [
+      "Fixed update_score win bonus formula to use 100 - 10 * (attempt_number - 1) so attempt 1 earns 100 points.",
+      "Removed the parity check in update_score for 'Too High' so that wrong guesses ('Too High' and 'Too Low') consistently subtract 5 points."
+    ],
+    "fixed_code": "def get_range_for_difficulty(difficulty: str):\n    if difficulty == \"Easy\":\n        return 1, 20\n    if difficulty == \"Normal\":\n        return 1, 100\n    if difficulty == \"Hard\":\n        return 1, 200\n    return 1, 100\n\n\ndef parse_guess(raw: str):\n    if raw is None:\n        return False, None, \"Enter a guess.\"\n    raw = raw.strip()\n    if raw == \"\":\n        return False, None, \"Enter a guess.\"\n    try:\n        value = int(float(raw)) if \".\" in raw else int(raw)\n    except (ValueError, OverflowError):\n        return False, None, \"That is not a number.\"\n    return True, value, None\n\n\ndef check_guess(guess, secret):\n    if guess == secret:\n        return \"Win\", \"\ud83c\udf89 Correct!\"\n    if guess > secret:\n        return \"Too High\", \"\ud83d\udcc9 Go LOWER!\"\n    return \"Too Low\", \"\ud83d\udcc8 Go HIGHER!\"\n\n\ndef update_score(current_score: int, outcome: str, attempt_number: int):\n    if outcome == \"Win\":\n        points = 100 - 10 * (attempt_number - 1)\n        if points < 10:\n            points = 10\n        return current_score + points\n    if outcome == \"Too High\":\n        return current_score - 5\n    if outcome == \"Too Low\":\n        return current_score - 5\n    return current_score\n",
+    "confidence": 1.0
+  }
+}

@@ -128,6 +128,11 @@ class GeminiClient:
                     model=self.model, contents=prompt, config=config)
                 break
             except self._errors.APIError as exc:
+                if exc.code == 429 and "per day" in str(exc).lower():
+                    # A daily quota will not recover in seconds, so retrying only wastes time.
+                    raise LLMError(f"Daily Gemini quota for {self.model} is used up; try again "
+                                   "tomorrow, set GEMINI_MODEL to another model, or use "
+                                   "--mode replay.") from exc
                 if exc.code in self.RETRYABLE and attempt < self.retries:
                     wait = 5 * 2 ** (attempt - 1)
                     log.warning("gemini %s (attempt %d), retrying in %ds", exc.code, attempt, wait)

@@ -1,6 +1,6 @@
 $ python investigate.py samples/syntax_error.py --mode record --provider gemini
 
-=== Glitch Investigator run 676637ad  [gemini (gemini-3.6-flash) [recording]] ===
+=== Glitch Investigator run 118c9f53  [gemini (gemini-3.6-flash) [recording]] ===
 🛡️  GUARD     Input rejected by guardrails: Syntax error on line 3: expected ':'
 
 --- Result ---

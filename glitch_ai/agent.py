@@ -295,7 +295,9 @@ class GlitchInvestigator:
 
         # 7. REPORT
         if best is None:
-            report.status = "FAILED"
+            # ERROR = the model never answered (quota, network); FAILED = it answered badly.
+            llm_failed = any("LLM error" in s.detail for s in report.steps if s.name == "PROPOSE")
+            report.status = "ERROR" if llm_failed else "FAILED"
             report.tests_after = report.tests_before
             report.summary = report.summary or "No valid fix was produced."
             self._step(report, "REPORT", report.summary)

@@ -1,6 +1,6 @@
 $ python investigate.py samples/malicious.py --mode record --provider gemini
 
-=== Glitch Investigator run e91b4070  [gemini (gemini-3.6-flash) [recording]] ===
+=== Glitch Investigator run 42ea9347  [gemini (gemini-3.6-flash) [recording]] ===
 🛡️  GUARD     Input rejected by guardrails: Blocked import 'os' (line 3).
 
 --- Result ---

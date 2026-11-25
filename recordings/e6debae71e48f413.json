@@ -1,0 +1,19 @@
+{
+  "model": "gemini (gemini-3.5-flash-lite)",
+  "proposal": {
+    "diagnosis": "The codebase contained several bugs: get_range_for_difficulty set the Hard range to (1, 50) instead of (1, 200) (KB05). check_guess converted the secret to a string and performed lexicographic comparisons with a try/except fallback (KB01), and had swapped hint messages for high and low guesses (KB02). update_score incorrectly rewarded points on certain wrong guesses and miscalculated the win score on the first attempt.",
+    "cited_patterns": [
+      "KB01",
+      "KB02",
+      "KB05"
+    ],
+    "changes": [
+      "Updated Hard difficulty range to (1, 200) in get_range_for_difficulty.",
+      "Removed string conversion and type fallback in check_guess to ensure proper numerical comparison.",
+      "Fixed hint message strings in check_guess so that Too High suggests going lower and Too Low suggests going higher.",
+      "Corrected update_score to never add points on wrong guesses and to award 100 points for a first-try win."
+    ],
+    "fixed_code": "def get_range_for_difficulty(difficulty: str):\n    if difficulty == \"Easy\":\n        return 1, 20\n    if difficulty == \"Normal\":\n        return 1, 100\n    if difficulty == \"Hard\":\n        return 1, 200\n    return 1, 100\n\n\ndef parse_guess(raw: str):\n    if raw is None:\n        return False, None, \"Enter a guess.\"\n    if raw == \"\":\n        return False, None, \"Enter a guess.\"\n    try:\n        if \".\" in raw:\n            value = int(float(raw))\n        else:\n            value = int(raw)\n    except Exception:\n        return False, None, \"That is not a number.\"\n    return True, value, None\n\n\ndef check_guess(guess, secret):\n    if guess == secret:\n        return \"Win\", \"\ud83c\udf89 Correct!\"\n    if guess > secret:\n        return \"Too High\", \"\ud83d\udcc9 Go LOWER!\"\n    return \"Too Low\", \"\ud83d\udcc8 Go HIGHER!\"\n\n\ndef update_score(current_score: int, outcome: str, attempt_number: int):\n    if outcome == \"Win\":\n        points = 100 - 10 * (attempt_number - 1)\n        if points < 10:\n            points = 10\n        return current_score + points\n    if outcome == \"Too High\":\n        return current_score - 5\n    if outcome == \"Too Low\":\n        return current_score - 5\n    return current_score\n",
+    "confidence": 1.0
+  }
+}

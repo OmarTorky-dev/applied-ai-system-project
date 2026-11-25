@@ -86,3 +86,16 @@ def test_parse_guess_rejects_text():
     ok, value, err = parse_guess("abc")
     assert ok is False and value is None
     assert err == "That is not a number."
+
+
+# --- Robustness invariant (added in the final project) -----------------------
+# Found by reviewing an AI-generated fix that passed all 15 tests above but crashed the
+# game on "inf". The same check then found that the hand-written version crashed on very
+# long decimals. Rule: whatever a player types, parse_guess returns a result, never raises.
+
+def test_parse_guess_never_crashes_on_any_text():
+    weird_inputs = ["inf", "-inf", "nan", "1e999", "0x10", "--5", "3.5.1", "½",
+                    "9" * 400, "1" + "0" * 400 + ".0"]
+    for raw in weird_inputs:
+        ok, value, err = parse_guess(raw)
+        assert (ok and isinstance(value, int)) or (not ok and err), raw

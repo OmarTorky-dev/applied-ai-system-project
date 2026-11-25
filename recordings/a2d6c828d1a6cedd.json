@@ -1,0 +1,16 @@
+{
+  "model": "gemini (gemini-3.6-flash)",
+  "proposal": {
+    "diagnosis": "1. `get_range_for_difficulty('Hard')` returned (1, 50) instead of (1, 200), making Hard narrower than Normal.\n2. `parse_guess` did not handle `None` or surrounding whitespace before attempting integer conversion, causing TypeErrors or incorrect parsing when whitespace-only or null input was passed.",
+    "cited_patterns": [
+      "KB05",
+      "KB07"
+    ],
+    "changes": [
+      "Updated 'Hard' difficulty range in get_range_for_difficulty to return (1, 200).",
+      "Updated parse_guess to handle None and whitespace-only strings, stripping input and attempting int(float(raw)) conversion safely."
+    ],
+    "fixed_code": "# Sample glitch: input parsing that crashes on blanks and spaces,\n# plus a Hard range that is easier than Normal.\n\n\ndef get_range_for_difficulty(difficulty: str):\n    if difficulty == \"Easy\":\n        return 1, 20\n    if difficulty == \"Normal\":\n        return 1, 100\n    if difficulty == \"Hard\":\n        return 1, 200\n    return 1, 100\n\n\ndef parse_guess(raw: str):\n    if raw is None:\n        return False, None, \"Enter a guess.\"\n    raw = raw.strip()\n    if not raw:\n        return False, None, \"Enter a guess.\"\n    try:\n        value = int(float(raw))\n    except (ValueError, OverflowError):\n        return False, None, \"That is not a number.\"\n    return True, value, None\n\n\ndef check_guess(guess, secret):\n    if guess == secret:\n        return \"Win\", \"\ud83c\udf89 Correct!\"\n    if guess > secret:\n        return \"Too High\", \"\ud83d\udcc9 Go LOWER!\"\n    return \"Too Low\", \"\ud83d\udcc8 Go HIGHER!\"\n\n\ndef update_score(current_score: int, outcome: str, attempt_number: int):\n    if outcome == \"Win\":\n        points = 100 - 10 * (attempt_number - 1)\n        if points < 10:\n            points = 10\n        return current_score + points\n    if outcome in (\"Too High\", \"Too Low\"):\n        return current_score - 5\n    return current_score\n",
+    "confidence": 1.0
+  }
+}

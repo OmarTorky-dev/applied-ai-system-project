@@ -1,13 +1,13 @@
 $ python investigate.py samples/clean.py --mode record --provider gemini
 
-=== Glitch Investigator run cf1d7dd8  [gemini (gemini-3.6-flash) [recording]] ===
+=== Glitch Investigator run 8ad72738  [gemini (gemini-3.6-flash) [recording]] ===
 🛡️  GUARD     Input passed static safety and contract checks.
-🧪 TEST      Baseline: 15/15 tests passed
+🧪 TEST      Baseline: 16/16 tests passed
 📋 REPORT    All tests already pass. No glitches found, so no AI call was made.
 
 --- Result ---
 Status      : NO_BUGS
 Confidence  : 1.00
-Tests       : before = 15/15 tests passed | after = 15/15 tests passed
+Tests       : before = 16/16 tests passed | after = 16/16 tests passed
 Summary     : All tests already pass. No glitches found, so no AI call was made.
 [exit code 0]

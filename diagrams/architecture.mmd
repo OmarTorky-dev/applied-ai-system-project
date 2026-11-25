@@ -24,7 +24,7 @@ flowchart TD
 
         G1 -->|"unsafe or syntax error: REFUSED"| REP
         G1 -->|ok| T1
-        T1 -->|"all 15 pass: NO_BUGS,<br/>no model call"| REP
+        T1 -->|"all 16 pass: NO_BUGS,<br/>no model call"| REP
         T1 -->|failures = evidence| R
         R -->|top-3 docs| P
         P --> V
@@ -36,7 +36,7 @@ flowchart TD
 
     %% ---------- Data stores & services ----------
     KB[("Knowledge base<br/>9 bug-pattern docs<br/>glitch_ai/knowledge_base/")] -.-> R
-    TESTS[("tests/test_game_logic.py<br/>15 behaviour tests = oracle")] -.-> T1
+    TESTS[("tests/test_game_logic.py<br/>16 behaviour tests = oracle")] -.-> T1
     TESTS -.-> T2
     CLAUDE[["Claude API<br/>claude-opus-5-5<br/>structured output"]] <-.->|live / record| P
     REC[("recordings/<br/>replayed responses<br/>(offline mode)")] <-.->|replay| P
@@ -49,7 +49,7 @@ flowchart TD
 
     %% ---------- Offline evaluation ----------
     subgraph Evaluation["Reliability testing (offline)"]
-        UT["pytest: 45 unit tests<br/>(fake LLM, no API key)"]
+        UT["pytest: 49 unit tests<br/>(fake LLM, no API key)"]
         EV["evaluate.py<br/>runs agent on every sample,<br/>checks expected status"]
     end
     EV -->|drives| AGENT

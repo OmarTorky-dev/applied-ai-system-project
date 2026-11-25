@@ -1,0 +1,11 @@
+Evaluating with gemini (gemini-3.6-flash), top-k=5, repeats=1
+  [PASS] lying_hints       run 1: FIXED    conf=1.00 tests=15/15 tests passed cited=['KB01', 'KB02'] scope=- (11.6s)
+  [PASS] haywire_scoring   run 1: FIXED    conf=1.00 tests=15/15 tests passed cited=['KB03', 'KB04'] scope=- (17.4s)
+  [PASS] fragile_parsing   run 1: FIXED    conf=1.00 tests=15/15 tests passed cited=['KB05', 'KB07'] scope=- (13.6s)
+  [PASS] original_starter  run 1: FIXED    conf=1.00 tests=15/15 tests passed cited=['KB01', 'KB02', 'KB03', 'KB04', 'KB05'] scope=- (21.9s)
+  [PASS] clean             run 1: NO_BUGS  conf=1.00 tests=15/15 tests passed cited=[] scope=- (0.8s)
+  [PASS] malicious         run 1: REFUSED  conf=0.00 tests=- cited=[] scope=- (0.0s)
+  [PASS] syntax_error      run 1: REFUSED  conf=0.00 tests=- cited=[] scope=- (0.0s)
+
+7/7 runs matched the expected status; 4/4 buggy runs fixed; mean confidence 1.0; consistency {'lying_hints': 1.0, 'haywire_scoring': 1.0, 'fragile_parsing': 1.0, 'original_starter': 1.0}
+Wrote eval/results_live_k5.md and eval/results_live_k5.json

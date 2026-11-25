@@ -1,0 +1,116 @@
+{
+  "run_id": "a4937fcc",
+  "time": "2026-11-25T06:04:36",
+  "model": "gemini (gemini-3.5-flash-lite)",
+  "status": "FIXED",
+  "confidence": 1.0,
+  "iterations": 2,
+  "tests_before": "14/16 tests passed",
+  "tests_after": "16/16 tests passed",
+  "cited_patterns": [
+    "KB07",
+    "KB08"
+  ],
+  "steps": [
+    {
+      "name": "GUARD",
+      "detail": "Input passed static safety and contract checks.",
+      "data": {}
+    },
+    {
+      "name": "TEST",
+      "detail": "Baseline: 14/16 tests passed",
+      "data": {
+        "failing": [
+          "test_hard_range_is_wider_than_normal",
+          "test_parse_guess_empty_and_blank"
+        ]
+      }
+    },
+    {
+      "name": "RETRIEVE",
+      "detail": "Attempt 1: KB05 (0.45), KB07 (0.37), KB02 (0.26)",
+      "data": {
+        "docs": [
+          {
+            "id": "KB05",
+            "score": 0.4478
+          },
+          {
+            "id": "KB07",
+            "score": 0.3667
+          },
+          {
+            "id": "KB02",
+            "score": 0.2603
+          }
+        ]
+      }
+    },
+    {
+      "name": "PROPOSE",
+      "detail": "Attempt 1: model cites ['KB05', 'KB07'], self-confidence 1.00",
+      "data": {
+        "diagnosis": "The Hard difficulty range was incorrectly set to 50 instead of 200, causing test_hard_range_is_wider_than_normal to fail (KB05). Additionally, parse_guess did not handle None values or whitespace-only strings properly, causing a TypeError on empty or blank inputs (KB07)."
+      }
+    },
+    {
+      "name": "VALIDATE",
+      "detail": "Proposed fix passed guardrails and scope check.",
+      "data": {}
+    },
+    {
+      "name": "VERIFY",
+      "detail": "Attempt 1: 15/16 tests passed",
+      "data": {
+        "failing": [
+          "test_parse_guess_never_crashes_on_any_text"
+        ]
+      }
+    },
+    {
+      "name": "RETRIEVE",
+      "detail": "Attempt 2: KB07 (0.46), KB02 (0.26), KB08 (0.26)",
+      "data": {
+        "docs": [
+          {
+            "id": "KB07",
+            "score": 0.4583
+          },
+          {
+            "id": "KB02",
+            "score": 0.2641
+          },
+          {
+            "id": "KB08",
+            "score": 0.2604
+          }
+        ]
+      }
+    },
+    {
+      "name": "PROPOSE",
+      "detail": "Attempt 2: model cites ['KB07', 'KB08'], self-confidence 1.00",
+      "data": {
+        "diagnosis": "The test test_parse_guess_never_crashes_on_any_text passes extreme/malformed strings such as 'inf', '-inf', 'nan', extremely large exponents like '1e999', or giant strings of digits that cause OverflowError or MemoryError when converted via float/int. We need to handle exceptions comprehensively in parse_guess so that any unexpected conversion error returns (False, None, 'That is not a number.')."
+      }
+    },
+    {
+      "name": "VALIDATE",
+      "detail": "Proposed fix passed guardrails and scope check.",
+      "data": {}
+    },
+    {
+      "name": "VERIFY",
+      "detail": "Attempt 2: 16/16 tests passed",
+      "data": {
+        "failing": []
+      }
+    },
+    {
+      "name": "REPORT",
+      "detail": "FIXED (confidence 1.00)",
+      "data": {}
+    }
+  ]
+}

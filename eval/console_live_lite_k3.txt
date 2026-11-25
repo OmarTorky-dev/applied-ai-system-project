@@ -1,0 +1,19 @@
+Evaluating with gemini (gemini-3.5-flash-lite), top-k=3, repeats=3
+  [PASS] lying_hints       run 1: FIXED    conf=1.00 tests=16/16 tests passed cited=['KB01', 'KB02'] scope=- (3.8s)
+  [PASS] lying_hints       run 2: FIXED    conf=1.00 tests=16/16 tests passed cited=['KB01', 'KB02'] scope=- (10.3s)
+  [PASS] lying_hints       run 3: FIXED    conf=1.00 tests=16/16 tests passed cited=['KB01', 'KB02'] scope=- (3.8s)
+  [PASS] haywire_scoring   run 1: FIXED    conf=1.00 tests=16/16 tests passed cited=['KB03', 'KB04'] scope=- (9.6s)
+  [FAIL] haywire_scoring   run 2: ERROR    conf=0.00 tests=14/16 tests passed cited=[] scope=- (39.5s)
+  [PASS] haywire_scoring   run 3: FIXED    conf=1.00 tests=16/16 tests passed cited=['KB04', 'KB03'] scope=- (3.9s)
+  [PASS] fragile_parsing   run 1: FIXED    conf=1.00 tests=16/16 tests passed cited=['KB05', 'KB07'] scope=- (3.8s)
+  [PASS] fragile_parsing   run 2: FIXED    conf=1.00 tests=16/16 tests passed cited=['KB07', 'KB08'] scope=- (6.8s)
+  [PASS] fragile_parsing   run 3: FIXED    conf=1.00 tests=16/16 tests passed cited=['KB05', 'KB07'] scope=- (9.9s)
+  [PASS] original_starter  run 1: FIXED    conf=1.00 tests=16/16 tests passed cited=['KB01', 'KB02', 'KB05'] scope=- (4.3s)
+  [PASS] original_starter  run 2: FIXED    conf=1.00 tests=16/16 tests passed cited=['KB01', 'KB02', 'KB05'] scope=- (11.1s)
+  [PASS] original_starter  run 3: FIXED    conf=1.00 tests=16/16 tests passed cited=['KB01', 'KB02', 'KB05'] scope=- (10.6s)
+  [PASS] clean             run 1: NO_BUGS  conf=1.00 tests=16/16 tests passed cited=[] scope=- (0.9s)
+  [PASS] malicious         run 1: REFUSED  conf=0.00 tests=- cited=[] scope=- (0.0s)
+  [PASS] syntax_error      run 1: REFUSED  conf=0.00 tests=- cited=[] scope=- (0.0s)
+
+14/15 runs matched the expected status; 11/12 buggy runs fixed; mean confidence 0.92; consistency {'lying_hints': 1.0, 'haywire_scoring': 0.67, 'fragile_parsing': 1.0, 'original_starter': 1.0}
+Wrote eval/results_live_lite_k3.md and eval/results_live_lite_k3.json

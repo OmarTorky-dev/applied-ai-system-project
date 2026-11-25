@@ -35,7 +35,7 @@ def parse_guess(raw: str):
             value = int(float(raw))
         else:
             value = int(raw)
-    except ValueError:
+    except (ValueError, OverflowError):  # OverflowError: float("1e400") is inf, int(inf) raises
         return False, None, "That is not a number."
 
     return True, value, None

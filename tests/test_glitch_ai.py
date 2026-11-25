@@ -121,7 +121,7 @@ def test_guardrail_rejects_empty_and_syntax_errors():
 
 def test_sandbox_correct_code_passes_everything():
     run = run_tests(CORRECT)
-    assert run.all_passed and run.total == 15
+    assert run.all_passed and run.total == 16
 
 
 def test_sandbox_reports_specific_failures():
@@ -148,8 +148,8 @@ def test_agent_fixes_bug_on_first_attempt(retriever):
     report = agent(llm, retriever).investigate(sample("lying_hints"))
     assert report.status == "FIXED"
     assert report.iterations == 1
-    assert report.tests_before == "11/15 tests passed"
-    assert report.tests_after == "15/15 tests passed"
+    assert report.tests_before == "12/16 tests passed"
+    assert report.tests_after == "16/16 tests passed"
     assert report.confidence >= 0.9
     # RAG is really in the prompt: the retrieved document text reaches the model.
     assert 'id="KB02"' in llm.prompts[0]
@@ -204,7 +204,7 @@ def test_agent_reports_partial_progress(retriever):
 def test_agent_handles_llm_errors_gracefully(retriever):
     llm = FakeLLM([LLMError("Rate limited")])
     report = agent(llm, retriever).investigate(sample("lying_hints"))
-    assert report.status == "FAILED"
+    assert report.status == "ERROR"  # infrastructure failure, not a bad fix
     assert "Rate limited" in report.summary
 
 

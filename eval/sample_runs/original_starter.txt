@@ -1,32 +1,29 @@
-$ python investigate.py samples/original_starter.py --mode record --provider gemini
+$ GEMINI_MODEL=gemini-3.5-flash-lite python investigate.py samples/original_starter.py --mode record --provider gemini
 
-=== Glitch Investigator run b6fdbb8b  [gemini (gemini-3.6-flash) [recording]] ===
+=== Glitch Investigator run 12263861  [gemini (gemini-3.5-flash-lite) [recording]] ===
 🛡️  GUARD     Input passed static safety and contract checks.
-🧪 TEST      Baseline: 8/15 tests passed
+🧪 TEST      Baseline: 9/16 tests passed
 📚 RETRIEVE  Attempt 1: KB02 (0.47), KB01 (0.32), KB05 (0.32)
 🤖 PROPOSE   Attempt 1: model cites ['KB01', 'KB02', 'KB05'], self-confidence 1.00
 ✅ VALIDATE  Proposed fix passed guardrails and scope check.
-🔁 VERIFY    Attempt 1: 15/15 tests passed
+🔁 VERIFY    Attempt 1: 16/16 tests passed
 📋 REPORT    FIXED (confidence 1.00)
 
 --- Result ---
 Status      : FIXED
 Confidence  : 1.00
-Tests       : before = 8/15 tests passed | after = 15/15 tests passed
+Tests       : before = 9/16 tests passed | after = 16/16 tests passed
 Grounded in : KB01, KB02, KB05
-Summary     : Fixed in 1 attempt(s): 15/15 tests passed. Review the diff before applying.
+Summary     : Fixed in 1 attempt(s): 16/16 tests passed. Review the diff before applying.
 
 Diagnosis:
-1. `get_range_for_difficulty` returned (1, 50) for 'Hard' instead of (1, 200), making Hard narrower than Normal.
-2. `check_guess` converted inputs to strings, causing lexicographical comparisons where '9' > '50', and returned swapped hint messages ('Go HIGHER!' for Too High).
-3. `update_score` added points on even attempt numbers for 'Too High' outcomes instead of deducting points, and computed win score using `(attempt_number + 1)` which penalized the first try.
+The codebase contained several bugs: get_range_for_difficulty set the Hard range to (1, 50) instead of (1, 200) (KB05). check_guess converted the secret to a string and performed lexicographic comparisons with a try/except fallback (KB01), and had swapped hint messages for high and low guesses (KB02). update_score incorrectly rewarded points on certain wrong guesses and miscalculated the win score on the first attempt.
 
 Changes:
-  - Updated 'Hard' range in `get_range_for_difficulty` to return (1, 200).
-  - Removed string conversion in `check_guess` to compare guess and secret numerically.
-  - Corrected hint messages in `check_guess`: 'Too High' returns '📉 Go LOWER!' and 'Too Low' returns '📈 Go HIGHER!'.
-  - Fixed `update_score` to deduct 5 points for both 'Too High' and 'Too Low' regardless of attempt number.
-  - Fixed win score calculation in `update_score` to use `attempt_number - 1` so attempt 1 awards 100 points.
+  - Updated Hard difficulty range to (1, 200) in get_range_for_difficulty.
+  - Removed string conversion and type fallback in check_guess to ensure proper numerical comparison.
+  - Fixed hint message strings in check_guess so that Too High suggests going lower and Too Low suggests going higher.
+  - Corrected update_score to never add points on wrong guesses and to award 100 points for a first-try win.
 
 Proposed diff:
 --- logic_utils.py (submitted)
@@ -48,7 +45,7 @@ Proposed diff:
      return 1, 100
  
  
-@@ -29,33 +24,19 @@
+@@ -29,32 +24,20 @@
  
  
  def check_guess(guess, secret):
@@ -79,13 +76,11 @@ Proposed diff:
          if points < 10:
              points = 10
          return current_score + points
--    if outcome == "Too High":
+     if outcome == "Too High":
 -        if attempt_number % 2 == 0:
 -            return current_score + 5
--        return current_score - 5
--    if outcome == "Too Low":
-+    if outcome == "Too High" or outcome == "Too Low":
          return current_score - 5
-     return current_score
+     if outcome == "Too Low":
+         return current_score - 5
 
 [exit code 0]

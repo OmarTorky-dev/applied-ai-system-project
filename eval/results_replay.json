@@ -1,0 +1,270 @@
+{
+  "meta": {
+    "tag": "replay",
+    "model": "replay (recorded model responses)",
+    "mode": "replay",
+    "top_k": 3,
+    "repeats": 1,
+    "date": "2026-11-25 06:03",
+    "command": "python evaluate.py --mode replay"
+  },
+  "summary": {
+    "runs": 7,
+    "passed": 7,
+    "fixed_runs": 4,
+    "fixed_ok": 4,
+    "first_try": 4,
+    "mean_confidence_buggy": 1.0,
+    "mean_citation_coverage": 0.88,
+    "runs_with_out_of_scope_edits": 0,
+    "consistency": {
+      "lying_hints": 1.0,
+      "haywire_scoring": 1.0,
+      "fragile_parsing": 1.0,
+      "original_starter": 1.0
+    }
+  },
+  "runs": [
+    {
+      "sample": "lying_hints",
+      "run": 1,
+      "expected": "FIXED",
+      "status": "FIXED",
+      "passed": true,
+      "tests_before": "12/16 tests passed",
+      "tests_after": "16/16 tests passed",
+      "iterations": 1,
+      "confidence": 1.0,
+      "cited": [
+        "KB01",
+        "KB02"
+      ],
+      "retrieved": [
+        "KB01",
+        "KB02",
+        "KB07"
+      ],
+      "retrieval_coverage": 1.0,
+      "citation_coverage": 1.0,
+      "out_of_scope": [],
+      "seconds": 1.7,
+      "summary": "Fixed in 1 attempt(s): 16/16 tests passed. Review the diff before applying."
+    },
+    {
+      "sample": "haywire_scoring",
+      "run": 1,
+      "expected": "FIXED",
+      "status": "FIXED",
+      "passed": true,
+      "tests_before": "14/16 tests passed",
+      "tests_after": "16/16 tests passed",
+      "iterations": 1,
+      "confidence": 1.0,
+      "cited": [
+        "KB04",
+        "KB03"
+      ],
+      "retrieved": [
+        "KB03",
+        "KB04",
+        "KB07"
+      ],
+      "retrieval_coverage": 1.0,
+      "citation_coverage": 1.0,
+      "out_of_scope": [],
+      "seconds": 1.6,
+      "summary": "Fixed in 1 attempt(s): 16/16 tests passed. Review the diff before applying."
+    },
+    {
+      "sample": "fragile_parsing",
+      "run": 1,
+      "expected": "FIXED",
+      "status": "FIXED",
+      "passed": true,
+      "tests_before": "14/16 tests passed",
+      "tests_after": "16/16 tests passed",
+      "iterations": 1,
+      "confidence": 1.0,
+      "cited": [
+        "KB05",
+        "KB07"
+      ],
+      "retrieved": [
+        "KB02",
+        "KB05",
+        "KB07"
+      ],
+      "retrieval_coverage": 1.0,
+      "citation_coverage": 1.0,
+      "out_of_scope": [],
+      "seconds": 1.7,
+      "summary": "Fixed in 1 attempt(s): 16/16 tests passed. Review the diff before applying."
+    },
+    {
+      "sample": "original_starter",
+      "run": 1,
+      "expected": "FIXED",
+      "status": "FIXED",
+      "passed": true,
+      "tests_before": "9/16 tests passed",
+      "tests_after": "16/16 tests passed",
+      "iterations": 1,
+      "confidence": 1.0,
+      "cited": [
+        "KB01",
+        "KB02",
+        "KB05"
+      ],
+      "retrieved": [
+        "KB01",
+        "KB02",
+        "KB05"
+      ],
+      "retrieval_coverage": 0.5,
+      "citation_coverage": 0.5,
+      "out_of_scope": [],
+      "seconds": 1.7,
+      "summary": "Fixed in 1 attempt(s): 16/16 tests passed. Review the diff before applying."
+    },
+    {
+      "sample": "clean",
+      "run": 1,
+      "expected": "NO_BUGS",
+      "status": "NO_BUGS",
+      "passed": true,
+      "tests_before": "16/16 tests passed",
+      "tests_after": "16/16 tests passed",
+      "iterations": 0,
+      "confidence": 1.0,
+      "cited": [],
+      "retrieved": [],
+      "retrieval_coverage": null,
+      "citation_coverage": null,
+      "out_of_scope": [],
+      "seconds": 0.9,
+      "summary": "All tests already pass. No glitches found, so no AI call was made."
+    },
+    {
+      "sample": "malicious",
+      "run": 1,
+      "expected": "REFUSED",
+      "status": "REFUSED",
+      "passed": true,
+      "tests_before": "",
+      "tests_after": "",
+      "iterations": 0,
+      "confidence": 0.0,
+      "cited": [],
+      "retrieved": [],
+      "retrieval_coverage": null,
+      "citation_coverage": null,
+      "out_of_scope": [],
+      "seconds": 0.0,
+      "summary": "Input rejected by guardrails: Blocked import 'os' (line 3)."
+    },
+    {
+      "sample": "syntax_error",
+      "run": 1,
+      "expected": "REFUSED",
+      "status": "REFUSED",
+      "passed": true,
+      "tests_before": "",
+      "tests_after": "",
+      "iterations": 0,
+      "confidence": 0.0,
+      "cited": [],
+      "retrieved": [],
+      "retrieval_coverage": null,
+      "citation_coverage": null,
+      "out_of_scope": [],
+      "seconds": 0.0,
+      "summary": "Input rejected by guardrails: Syntax error on line 3: expected ':'"
+    }
+  ],
+  "retrieval": {
+    "lying_hints": {
+      "relevant": [
+        "KB01",
+        "KB02"
+      ],
+      "ranking": [
+        "KB02",
+        "KB01",
+        "KB07",
+        "KB08",
+        "KB04"
+      ],
+      "coverage_at_k": {
+        "1": 0.5,
+        "2": 1.0,
+        "3": 1.0,
+        "4": 1.0,
+        "5": 1.0
+      }
+    },
+    "haywire_scoring": {
+      "relevant": [
+        "KB03",
+        "KB04"
+      ],
+      "ranking": [
+        "KB04",
+        "KB03",
+        "KB07",
+        "KB02",
+        "KB08"
+      ],
+      "coverage_at_k": {
+        "1": 0.5,
+        "2": 1.0,
+        "3": 1.0,
+        "4": 1.0,
+        "5": 1.0
+      }
+    },
+    "fragile_parsing": {
+      "relevant": [
+        "KB05",
+        "KB07"
+      ],
+      "ranking": [
+        "KB05",
+        "KB07",
+        "KB02",
+        "KB08",
+        "KB03"
+      ],
+      "coverage_at_k": {
+        "1": 0.5,
+        "2": 1.0,
+        "3": 1.0,
+        "4": 1.0,
+        "5": 1.0
+      }
+    },
+    "original_starter": {
+      "relevant": [
+        "KB01",
+        "KB02",
+        "KB03",
+        "KB04",
+        "KB05",
+        "KB06"
+      ],
+      "ranking": [
+        "KB02",
+        "KB01",
+        "KB05",
+        "KB04",
+        "KB03"
+      ],
+      "coverage_at_k": {
+        "1": 0.17,
+        "2": 0.33,
+        "3": 0.5,
+        "4": 0.67,
+        "5": 0.83
+      }
+    }
+  }
+}
