@@ -278,9 +278,7 @@ The responsible-AI reflection (limitations, misuse, surprises and how I collabor
 
 **What this project says about me as an AI engineer:** I don't trust a model because it sounds sure, and I don't trust my own tests just because they pass. In this project the LLM was the easy part. The engineering went into the layers that make its output trustworthy: real test evidence instead of self-reported confidence, retrieval the model has to cite, guardrails on both its input and its output, honest statuses when the API fails, and an evaluation harness that ended up catching bugs in the AI's fixes *and* in my own hand-written code. I like building AI systems that can show their work, admit uncertainty, and leave the final call to a human, and I document their limits as carefully as their results.
 
-**Presentation:** 15-slide deck with speaker notes, a timed outline, a full script, a demo plan with an offline backup, and likely Q&A: [docs/presentation.md](docs/presentation.md).
-
-🎥 **Video walkthrough (optional):** *add Loom link here* (script in [docs/presentation.md](docs/presentation.md#loom-walkthrough-script-optional-3-minutes))
+🎥 **Video walkthrough (optional):** *add Loom link here*
 
 ---
 
