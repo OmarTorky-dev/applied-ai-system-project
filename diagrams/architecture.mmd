@@ -1,0 +1,66 @@
+%% Glitch Investigator AI: system architecture
+%% Source of truth for the diagram embedded in README.md
+flowchart TD
+    %% ---------- Inputs ----------
+    U([👤 Developer]) -->|"pastes / selects a buggy<br/>logic_utils.py"| UI
+    subgraph Interfaces
+        UI["Streamlit app<br/>🎮 Play tab + 🕵️ AI Investigator tab<br/>(app.py, investigator_ui.py)"]
+        CLI["CLI<br/>investigate.py"]
+    end
+    U -->|"python investigate.py file.py"| CLI
+    UI --> AGENT
+    CLI --> AGENT
+
+    %% ---------- Agent loop ----------
+    subgraph AGENT["GlitchInvestigator agent  (glitch_ai/agent.py)"]
+        direction TB
+        G1{"1 · GUARD<br/>AST guardrails<br/>(guardrails.py)"}
+        T1["2 · TEST<br/>baseline pytest run<br/>(sandbox.py)"]
+        R["3 · RETRIEVE<br/>TF-IDF search, query =<br/>failing tests + code<br/>(retriever.py)"]
+        P["4 · PROPOSE<br/>Claude: diagnosis + full fix<br/>+ cited KB IDs + self-confidence<br/>(llm.py)"]
+        V{"5 · VALIDATE<br/>guardrails on the fix +<br/>citation check"}
+        T2{"6 · VERIFY<br/>re-run pytest<br/>all pass?"}
+        REP["7 · REPORT<br/>status · confidence score ·<br/>diff · step trace"]
+
+        G1 -->|"unsafe or syntax error: REFUSED"| REP
+        G1 -->|ok| T1
+        T1 -->|"all 15 pass: NO_BUGS,<br/>no model call"| REP
+        T1 -->|failures = evidence| R
+        R -->|top-3 docs| P
+        P --> V
+        V -->|"rejected: reason fed back"| R
+        V -->|ok| T2
+        T2 -->|"no: new failures fed back<br/>(max 3 attempts)"| R
+        T2 -->|yes| REP
+    end
+
+    %% ---------- Data stores & services ----------
+    KB[("Knowledge base<br/>9 bug-pattern docs<br/>glitch_ai/knowledge_base/")] -.-> R
+    TESTS[("tests/test_game_logic.py<br/>15 behaviour tests = oracle")] -.-> T1
+    TESTS -.-> T2
+    CLAUDE[["Claude API<br/>claude-opus-5-5<br/>structured output"]] <-.->|live / record| P
+    REC[("recordings/<br/>replayed responses<br/>(offline mode)")] <-.->|replay| P
+
+    %% ---------- Outputs & human checkpoint ----------
+    REP --> LOGS[("logs/glitch_ai.log<br/>logs/runs.jsonl")]
+    REP --> HUMAN{{"👤 Human review<br/>reads diff + confidence,<br/>decides to apply or not"}}
+    HUMAN -->|approve| APPLY["Replace logic_utils.py<br/>→ play the fixed game"]
+    HUMAN -->|reject| U
+
+    %% ---------- Offline evaluation ----------
+    subgraph Evaluation["Reliability testing (offline)"]
+        UT["pytest: 45 unit tests<br/>(fake LLM, no API key)"]
+        EV["evaluate.py<br/>runs agent on every sample,<br/>checks expected status"]
+    end
+    EV -->|drives| AGENT
+    EV --> RES[("eval/results.md<br/>eval/results.json")]
+    UT -.->|tests| AGENT
+
+    classDef human fill:#fde68a,stroke:#b45309,color:#000
+    classDef ai fill:#ddd6fe,stroke:#6d28d9,color:#000
+    classDef store fill:#e0f2fe,stroke:#0369a1,color:#000
+    classDef guard fill:#fecaca,stroke:#b91c1c,color:#000
+    class U,HUMAN human
+    class P,CLAUDE ai
+    class KB,TESTS,REC,LOGS,RES store
+    class G1,V guard
