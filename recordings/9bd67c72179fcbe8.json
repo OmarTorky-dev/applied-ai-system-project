@@ -1,0 +1,16 @@
+{
+  "model": "gemini (gemini-3.6-flash)",
+  "proposal": {
+    "diagnosis": "In update_score, win bonus calculation used (attempt_number + 1) instead of (attempt_number - 1), causing a first-try win to score 80 points instead of 100. Additionally, an attempt_number parity check caused 'Too High' outcomes on even attempts to add 5 points to the score instead of subtracting 5 points.",
+    "cited_patterns": [
+      "KB03",
+      "KB04"
+    ],
+    "changes": [
+      "Corrected win bonus calculation formula in update_score to use 100 - 10 * (attempt_number - 1).",
+      "Removed parity check in update_score so both 'Too High' and 'Too Low' outcomes deduct 5 points regardless of attempt number."
+    ],
+    "fixed_code": "def get_range_for_difficulty(difficulty: str):\n    if difficulty == \"Easy\":\n        return 1, 20\n    if difficulty == \"Normal\":\n        return 1, 100\n    if difficulty == \"Hard\":\n        return 1, 200\n    return 1, 100\n\n\ndef parse_guess(raw: str):\n    if raw is None:\n        return False, None, \"Enter a guess.\"\n    raw = raw.strip()\n    if raw == \"\":\n        return False, None, \"Enter a guess.\"\n    try:\n        value = int(float(raw)) if \".\" in raw else int(raw)\n    except ValueError:\n        return False, None, \"That is not a number.\"\n    return True, value, None\n\n\ndef check_guess(guess, secret):\n    if guess == secret:\n        return \"Win\", \"\ud83c\udf89 Correct!\"\n    if guess > secret:\n        return \"Too High\", \"\ud83d\udcc9 Go LOWER!\"\n    return \"Too Low\", \"\ud83d\udcc8 Go HIGHER!\"\n\n\ndef update_score(current_score: int, outcome: str, attempt_number: int):\n    if outcome == \"Win\":\n        points = 100 - 10 * (attempt_number - 1)\n        if points < 10:\n            points = 10\n        return current_score + points\n    if outcome == \"Too High\" or outcome == \"Too Low\":\n        return current_score - 5\n    return current_score\n",
+    "confidence": 1.0
+  }
+}

@@ -1,0 +1,11 @@
+$ python investigate.py samples/syntax_error.py --mode record --provider gemini
+
+=== Glitch Investigator run 676637ad  [gemini (gemini-3.6-flash) [recording]] ===
+🛡️  GUARD     Input rejected by guardrails: Syntax error on line 3: expected ':'
+
+--- Result ---
+Status      : REFUSED
+Confidence  : 0.00
+Tests       : before = n/a | after = n/a
+Summary     : Input rejected by guardrails: Syntax error on line 3: expected ':'
+[exit code 1]

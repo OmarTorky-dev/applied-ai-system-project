@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from glitch_ai.agent import GlitchInvestigator, score_confidence
-from glitch_ai.guardrails import check_code
+from glitch_ai.guardrails import changed_functions, check_code
 from glitch_ai.llm import FixProposal, LLMError, ReplayClient
 from glitch_ai.retriever import Retriever, load_knowledge_base, tokenize
 from glitch_ai.sandbox import TestRun, parse_pytest_output, run_tests
@@ -17,6 +17,18 @@ CORRECT = (ROOT / "logic_utils.py").read_text(encoding="utf-8")
 
 def sample(name: str) -> str:
     return (SAMPLES / f"{name}.py").read_text(encoding="utf-8")
+
+
+# The minimal correct fix for samples/lying_hints.py: only check_guess changes.
+LYING_FIXED = sample("lying_hints").replace(
+    '    g, s = str(guess), str(secret)\n'
+    '    if g > s:\n'
+    '        return "Too High", "📈 Go HIGHER!"\n'
+    '    return "Too Low", "📉 Go LOWER!"',
+    '    if guess > secret:\n'
+    '        return "Too High", "📉 Go LOWER!"\n'
+    '    return "Too Low", "📈 Go HIGHER!"')
+assert LYING_FIXED != sample("lying_hints")
 
 
 class FakeLLM:
@@ -132,7 +144,7 @@ def test_parse_pytest_output_collection_error():
 # --- Agent loop -----------------------------------------------------------------
 
 def test_agent_fixes_bug_on_first_attempt(retriever):
-    llm = FakeLLM([proposal(CORRECT, cited=["KB01", "KB02"])])
+    llm = FakeLLM([proposal(LYING_FIXED, cited=["KB01", "KB02"])])
     report = agent(llm, retriever).investigate(sample("lying_hints"))
     assert report.status == "FIXED"
     assert report.iterations == 1
@@ -148,7 +160,7 @@ def test_agent_retries_with_feedback_after_a_bad_fix(retriever):
     half_fixed = sample("lying_hints").replace(
         '"📈 Go HIGHER!"\n    return "Too Low", "📉 Go LOWER!"',
         '"📉 Go LOWER!"\n    return "Too Low", "📈 Go HIGHER!"')
-    llm = FakeLLM([proposal(half_fixed, cited=["KB02"]), proposal(CORRECT, cited=["KB01"])])
+    llm = FakeLLM([proposal(half_fixed, cited=["KB02"]), proposal(LYING_FIXED, cited=["KB01"])])
     report = agent(llm, retriever).investigate(sample("lying_hints"))
     assert report.status == "FIXED"
     assert report.iterations == 2
@@ -158,8 +170,8 @@ def test_agent_retries_with_feedback_after_a_bad_fix(retriever):
 
 
 def test_agent_rejects_unsafe_fix_and_tells_the_model(retriever):
-    evil = "import os\n" + CORRECT
-    llm = FakeLLM([proposal(evil), proposal(CORRECT, cited=["KB02"])])
+    evil = "import os\n" + LYING_FIXED
+    llm = FakeLLM([proposal(evil), proposal(LYING_FIXED, cited=["KB02"])])
     report = agent(llm, retriever).investigate(sample("lying_hints"))
     assert report.status == "FIXED"
     assert "guardrail_rejection" in llm.prompts[1]
@@ -197,8 +209,8 @@ def test_agent_handles_llm_errors_gracefully(retriever):
 
 
 def test_hallucinated_citation_lowers_confidence(retriever):
-    honest = agent(FakeLLM([proposal(CORRECT, cited=["KB02"])]), retriever)
-    liar = agent(FakeLLM([proposal(CORRECT, cited=["KB02", "KB99"])]), retriever)
+    honest = agent(FakeLLM([proposal(LYING_FIXED, cited=["KB02"])]), retriever)
+    liar = agent(FakeLLM([proposal(LYING_FIXED, cited=["KB02", "KB99"])]), retriever)
     a = honest.investigate(sample("lying_hints"))
     b = liar.investigate(sample("lying_hints"))
     assert b.confidence < a.confidence
@@ -212,3 +224,31 @@ def test_confidence_is_zero_when_tests_cannot_run():
 def test_replay_client_raises_clear_error_for_unknown_prompt(tmp_path):
     with pytest.raises(LLMError, match="No recording"):
         ReplayClient(directory=tmp_path).propose_fix("sys", "never seen")
+
+
+# --- Scope check (added after a live Gemini run rewrote parse_guess unprompted) ------
+
+def test_changed_functions_ignores_comments_and_docstrings():
+    edited = CORRECT.replace('"""Return (low, high) inclusive range for a given difficulty."""',
+                             '"""A different docstring."""') + "\n# a new comment\n"
+    assert changed_functions(CORRECT, edited) == set()
+
+
+def test_changed_functions_detects_logic_edit():
+    edited = CORRECT.replace("return current_score - 5", "return current_score - 6")
+    assert changed_functions(CORRECT, edited) == {"update_score"}
+
+
+def test_agent_flags_out_of_scope_edits(retriever):
+    # lying_hints only breaks check_guess. This "fix" is correct but also rewrites parse_guess.
+    overreach = LYING_FIXED.replace('int(float(raw)) if "." in raw else int(raw)',
+                                    'int(float(raw))')
+    assert overreach != LYING_FIXED
+    clean = agent(FakeLLM([proposal(LYING_FIXED, cited=["KB02"])]), retriever)
+    messy = agent(FakeLLM([proposal(overreach, cited=["KB02"])]), retriever)
+    a = clean.investigate(sample("lying_hints"))
+    b = messy.investigate(sample("lying_hints"))
+    assert a.status == b.status == "FIXED"
+    assert a.out_of_scope == [] and b.out_of_scope == ["parse_guess"]
+    assert b.confidence < a.confidence
+    assert "parse_guess" in b.summary

@@ -1,96 +1,273 @@
-# 🎮 Game Glitch Investigator: The Impossible Guesser
+# 🕵️ Glitch Investigator AI
 
-## 🚨 The Situation
+**An AI debugging agent that finds, explains and fixes logic bugs, grounds every fix in a knowledge base of known bug patterns, and only reports success when the test suite proves it.**
 
-You asked an AI to build a simple "Number Guessing Game" using Streamlit.
-It wrote the code, ran away, and now the game is unplayable. 
+You give it a broken version of a game's logic module. It runs the tests to see what is really broken, retrieves the matching bug patterns, asks an LLM for a diagnosis and a fix, checks that fix with guardrails and the tests, and retries with the new evidence if anything still fails. The result is a status, a confidence score, a readable diagnosis and a diff that **a human approves before anything changes**.
 
-- You can't win.
-- The hints lie to you.
-- The secret number seems to have commitment issues.
+> AI-written code often *looks* right while being quietly wrong. This project is about building an AI tool you can actually trust: one that shows its evidence, cites its sources, refuses unsafe input, and says how sure it is.
 
-## 🛠️ Setup
+---
 
-1. Install dependencies: `pip install -r requirements.txt`
-2. Run the broken app: `python -m streamlit run app.py`
+## 📦 Where this started: Game Glitch Investigator (Module 1)
 
-## 🕵️‍♂️ Your Mission
+This project extends my Module 1 project, **[Game Glitch Investigator: The Impossible Guesser](https://github.com/OmarTorky-dev/Game-Glitch-Investigator)**. In that project I was given a Streamlit number-guessing game written by an AI that "ran away": the hints lied, New Game didn't reset, scoring went haywire and Hard was easier than Normal. I reproduced each bug, fixed them by hand, moved the game logic into `logic_utils.py`, and grew the test suite from 3 to 15 tests. The original write-up is preserved in [docs/module1_README.md](docs/module1_README.md) and [docs/module1_reflection.md](docs/module1_reflection.md).
 
-1. **Play the game.** Open the "Developer Debug Info" tab in the app to see the secret number. Try to win.
-2. **Find the State Bug.** Why does the secret number change every time you click "Submit"? Ask ChatGPT: *"How do I keep a variable from resetting in Streamlit when I click a button?"*
-3. **Fix the Logic.** The hints ("Higher/Lower") are wrong. Fix them.
-4. **Refactor & Test.** - Move the logic into `logic_utils.py`.
-   - Run `pytest` in your terminal.
-   - Keep fixing until all tests pass!
+**What's new in the final project:** the manual debugging process I followed in Module 1 (reproduce, look up the bug pattern, fix the root cause, re-test) is now an **AI agent** with retrieval (RAG), a self-checking fix loop, guardrails, confidence scoring, logging and an evaluation harness. It's built into the original Streamlit app as a new tab and is also available as a CLI.
 
-## 📝 Document Your Experience
+---
 
-- [x] **Describe the game's purpose.**
-  A Streamlit number-guessing game. The app picks a secret number in a range set by the difficulty (Easy 1–20, Normal 1–100, Hard 1–200). You get a limited number of attempts (6 / 8 / 6). After each guess it tells you to go higher or lower, and your score goes down with each wrong guess. Winning sooner earns more points.
+## 🏗️ Architecture overview
 
-- [x] **Detail which bugs you found.**
-  - **Lying hints:** on every even attempt the secret was turned into a string, so guesses were compared alphabetically (`"9" > "50"`), and the fallback branch had "Go HIGHER"/"Go LOWER" swapped. In the original code the messages were backwards on every guess.
-  - **New Game didn't work:** it never reset `status`, so after a win or loss the game stayed locked on "Game over". It also ignored the difficulty range and kept the old history.
-  - **Off-by-one attempts:** `attempts` started at 1, so you got one fewer guess than promised, and the "Attempts left" banner was always one guess behind.
-  - **Difficulty mismatch:** Hard (1–50) was easier than Normal (1–100), and the banner always said "between 1 and 100".
-  - **Haywire scoring:** a "Too High" guess *added* 5 points on even attempts, and a first-try win only scored 80.
-  - **Broken tests:** `logic_utils.py` was a stub, and the starter tests compared a `(outcome, message)` tuple to a plain string.
-  - Full details: [reflection.md](reflection.md) (Bug Reproduction Log).
+Full diagram source: [diagrams/architecture.mmd](diagrams/architecture.mmd)
 
-- [x] **Explain what fixes you applied.**
-  - Moved `get_range_for_difficulty`, `parse_guess`, `check_guess` and `update_score` from `app.py` into `logic_utils.py`, so they can be tested without Streamlit.
-  - Kept the secret as an `int` and deleted the `try/except TypeError` string-comparison fallback, so hints are always numeric and correct.
-  - Added a `start_new_game()` helper that resets secret, attempts, score, status and history from the current difficulty's range. It runs on first load, on New Game, and when the difficulty changes.
-  - Attempts start at 0, invalid input no longer costs an attempt, and the banner is drawn *after* the guess is processed, so it shows the real range and an accurate attempts-left count.
-  - Every wrong guess costs 5 points, and a first-try win scores 100 (minimum 10).
-  - Hard is now 1–200 with 6 attempts.
-  - Fixed the starter tests to unpack the tuple and added 12 new tests (15 total, all passing).
-
-## 📸 Demo Walkthrough
-
-A sample game on the fixed app (Normal difficulty; the secret is **63**, visible in "Developer Debug Info"):
-
-1. Open the app with `python -m streamlit run app.py`. The sidebar shows **Range: 1 to 100** and **Attempts allowed: 8**, and the banner says *"Guess a number between 1 and 100. Attempts left: 8"*.
-2. Enter a guess of **40** and click **Submit Guess 🚀** → hint **"📈 Go HIGHER!"**. Score: **-5**, attempts left: **7**.
-3. Enter **70** → **"📉 Go LOWER!"**. Score: **-10**, attempts left: **6**.
-4. Enter **abc** → error **"That is not a number."** Attempts left stays at **6** and the score stays at **-10**, because invalid input doesn't count as a guess.
-5. Enter **60** → **"📈 Go HIGHER!"**. Score: **-15**, attempts left: **5**.
-6. Enter **63** → **"🎉 Correct!"**, balloons, and *"You won! The secret was 63. Final score: 55"* (-15 from wrong guesses + 70 for winning on attempt 4).
-7. Try to guess **10** after winning → *"You already won. Start a new game to play again."* The game is over, so the guess is ignored.
-8. Click **New Game 🔁** → *"New game started."* Attempts left resets to **8**, score to **0**, and the history is cleared, with a new secret from 1–100.
-9. Switch the sidebar to **Hard** → the sidebar shows **Range: 1 to 200**, **Attempts allowed: 6**, and a fresh game starts with a secret from 1–200.
-
-**Screenshot** *(optional)*: <!-- Insert a screenshot of your fixed, winning game here -->
-
-## 🧪 Test Results
-
-```
-$ pytest -v
-============================= test session starts =============================
-platform win32 -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0
-collected 15 items
-
-tests/test_game_logic.py::test_winning_guess PASSED                      [  6%]
-tests/test_game_logic.py::test_guess_too_high PASSED                     [ 13%]
-tests/test_game_logic.py::test_guess_too_low PASSED                      [ 20%]
-tests/test_game_logic.py::test_too_high_message_says_go_lower PASSED     [ 26%]
-tests/test_game_logic.py::test_too_low_message_says_go_higher PASSED     [ 33%]
-tests/test_game_logic.py::test_single_digit_guess_is_compared_numerically PASSED [ 40%]
-tests/test_game_logic.py::test_hint_is_the_same_on_every_attempt PASSED  [ 46%]
-tests/test_game_logic.py::test_wrong_guess_never_adds_points PASSED      [ 53%]
-tests/test_game_logic.py::test_first_try_win_scores_100 PASSED           [ 60%]
-tests/test_game_logic.py::test_win_score_has_floor_of_10 PASSED          [ 66%]
-tests/test_game_logic.py::test_hard_range_is_wider_than_normal PASSED    [ 73%]
-tests/test_game_logic.py::test_parse_guess_valid_int PASSED              [ 80%]
-tests/test_game_logic.py::test_parse_guess_strips_whitespace PASSED      [ 86%]
-tests/test_game_logic.py::test_parse_guess_empty_and_blank PASSED        [ 93%]
-tests/test_game_logic.py::test_parse_guess_rejects_text PASSED           [100%]
-
-============================= 15 passed in 0.08s ==============================
+```mermaid
+flowchart LR
+    U([👤 Developer]) -->|buggy logic_utils.py| G{GUARD<br/>AST guardrails}
+    G -->|unsafe| X[REFUSED]
+    G -->|ok| T[TEST<br/>pytest baseline]
+    T -->|all pass| N[NO_BUGS<br/>no model call]
+    T -->|failing tests| R[RETRIEVE<br/>TF-IDF over 9<br/>bug-pattern docs]
+    R --> P[PROPOSE<br/>LLM: diagnosis,<br/>fix, citations]
+    P --> V{VALIDATE<br/>guardrails, citations,<br/>scope check}
+    V -->|rejected| R
+    V --> F{VERIFY<br/>re-run pytest}
+    F -->|still failing, ≤3 tries| R
+    F -->|all pass| REP[REPORT<br/>status, confidence,<br/>diff, trace]
+    REP --> H{{👤 Human review}}
+    H -->|approve| A[Apply fix, play game]
 ```
 
-The full output is also saved in [test_results.txt](test_results.txt).
+| Component | File | What it does |
+|---|---|---|
+| **Guardrails** | [glitch_ai/guardrails.py](glitch_ai/guardrails.py) | Parses code with `ast` *without running it*. Blocks dangerous imports (`os`, `subprocess`, `socket`…) and calls (`eval`, `exec`, `open`…), enforces size limits and the four-function API contract. Also powers the **scope check**, which flags edits to functions no failing test covers. |
+| **Sandbox** | [glitch_ai/sandbox.py](glitch_ai/sandbox.py) | Runs the 15 behaviour tests against the candidate code in a temp folder, in a subprocess with a 30 s timeout. Refuses to run anything the guardrails reject. |
+| **Retriever (RAG)** | [glitch_ai/retriever.py](glitch_ai/retriever.py), [knowledge_base/](glitch_ai/knowledge_base/) | TF-IDF search over 9 bug-pattern documents I wrote from my Module 1 bug log (string-vs-int comparison, swapped hints, off-by-one, scoring sign errors…). The query is the **failing tests**, weighted 2×, plus the code. |
+| **LLM client** | [glitch_ai/llm.py](glitch_ai/llm.py) | Calls Gemini (`gemini-3.6-flash`) or Claude with **structured JSON output** (diagnosis, cited doc IDs, change list, full fixed file, self-confidence). `record` mode saves responses; `replay` mode reproduces them offline. |
+| **Agent** | [glitch_ai/agent.py](glitch_ai/agent.py) | The plan, act and check loop shown above, plus confidence scoring and a JSONL trace of every step in `logs/runs.jsonl`. |
+| **Interfaces** | [app.py](app.py), [investigator_ui.py](investigator_ui.py), [investigate.py](investigate.py) | Streamlit app with a 🎮 **Play** tab (the original game) and a 🕵️ **AI Investigator** tab, plus a CLI. |
 
-## 🚀 Stretch Features
+**Where humans and tests check the AI:** the test suite checks every proposed fix before it is reported; the guardrails check both the input and the AI's output; and nothing is ever applied automatically, because a person reads the diagnosis, confidence and diff and decides.
 
-- [ ] [If you choose to complete Challenge 4, describe the Enhanced UI changes here — a screenshot is optional]
+---
+
+## ⚙️ Setup
+
+Requires **Python 3.10+** (developed on 3.14, Windows 11).
+
+```bash
+# 1. Clone and enter the project
+git clone https://github.com/OmarTorky-dev/applied-ai-system-project.git
+cd applied-ai-system-project
+
+# 2. Create a virtual environment and install dependencies
+python -m venv .venv
+.venv\Scripts\activate          # Windows
+# source .venv/bin/activate     # macOS / Linux
+pip install -r requirements.txt
+
+# 3. (Optional) add an API key to run the model live
+copy .env.example .env          # Windows  (cp on macOS / Linux)
+# then edit .env and set GEMINI_API_KEY=...  (free at https://aistudio.google.com)
+#   or ANTHROPIC_API_KEY=...  to use Claude instead
+```
+
+**No API key? Everything still runs.** Without a key the agent uses **replay mode**: it answers from the real Gemini responses recorded in [recordings/](recordings/), so the bundled samples reproduce exactly the outputs shown below.
+
+```bash
+# Run the tests (48 tests, no API key needed)
+python -m pytest
+
+# Investigate a buggy file from the command line
+python investigate.py samples/lying_hints.py
+
+# Launch the app (game + AI Investigator tab)
+python -m streamlit run app.py
+```
+
+CLI options: `--mode {auto,live,record,replay}`, `--provider {auto,gemini,claude}`, `--max-iters N`, `--out fixed.py` (writes the fix to a new file; it refuses to overwrite the input).
+
+---
+
+## 💬 Sample interactions
+
+All outputs below come from real runs against `gemini-3.6-flash`, made in `record` mode so they can be replayed. Long sections are trimmed where marked `[...]`; the complete, untrimmed logs with every diff are in [eval/sample_runs/](eval/sample_runs/). You can reproduce any of them without a key: `python investigate.py samples/<name>.py --mode replay`.
+
+### 1. Lying hints: RAG retrieves the right bug patterns and the fix is verified
+
+**Input:** [samples/lying_hints.py](samples/lying_hints.py), where `check_guess` compares numbers as strings and has its hint messages swapped (the exact bug from Module 1).
+
+```text
+$ python investigate.py samples/lying_hints.py --mode record --provider gemini
+
+=== Glitch Investigator run fc6ca7fa  [gemini (gemini-3.6-flash) [recording]] ===
+🛡️  GUARD     Input passed static safety and contract checks.
+🧪 TEST      Baseline: 11/15 tests passed
+📚 RETRIEVE  Attempt 1: KB02 (0.54), KB01 (0.37), KB07 (0.25)
+🤖 PROPOSE   Attempt 1: model cites ['KB01', 'KB02'], self-confidence 1.00
+✅ VALIDATE  Proposed fix passed guardrails and scope check.
+🔁 VERIFY    Attempt 1: 15/15 tests passed
+📋 REPORT    FIXED (confidence 1.00)
+
+--- Result ---
+Status      : FIXED
+Confidence  : 1.00
+Tests       : before = 11/15 tests passed | after = 15/15 tests passed
+Grounded in : KB01, KB02
+Summary     : Fixed in 1 attempt(s): 15/15 tests passed. Review the diff before applying.
+
+Diagnosis:
+In `check_guess`, `guess` and `secret` were converted to strings before comparison
+(`g, s = str(guess), str(secret)`), leading to string lexicographical comparisons where
+e.g. "9" > "50". Additionally, the hint messages were swapped: when `guess > secret`
+("Too High"), the message incorrectly advised "Go HIGHER!", and when `guess < secret`
+("Too Low"), it incorrectly advised "Go LOWER!".
+
+Changes:
+  - Removed string conversion in `check_guess` so `guess` and `secret` are compared numerically.
+  - Swapped hint messages in `check_guess` so 'Too High' suggests '📉 Go LOWER!' and 'Too Low' suggests '📈 Go HIGHER!'.
+
+Proposed diff:
+[... header-comment removal trimmed ...]
+@@ -28,10 +24,9 @@
+ def check_guess(guess, secret):
+     if guess == secret:
+         return "Win", "🎉 Correct!"
+-    g, s = str(guess), str(secret)
+-    if g > s:
+-        return "Too High", "📈 Go HIGHER!"
+-    return "Too Low", "📉 Go LOWER!"
++    if guess > secret:
++        return "Too High", "📉 Go LOWER!"
++    return "Too Low", "📈 Go HIGHER!"
+```
+
+The retriever ranked **KB02 (swapped hint messages)** and **KB01 (numbers compared as strings)** highest using only the failing test names and assertions. The model used those documents' vocabulary in its diagnosis and cited exactly those two.
+
+### 2. The full original starter code: four bug classes, fixed in one pass
+
+**Input:** [samples/original_starter.py](samples/original_starter.py), the original AI-generated logic with every bug at once, including the `try/except TypeError` "safety net" that hid the string comparison.
+
+```text
+$ python investigate.py samples/original_starter.py --mode record --provider gemini
+[...]
+🧪 TEST      Baseline: 8/15 tests passed
+📚 RETRIEVE  Attempt 1: KB02 (0.47), KB01 (0.32), KB05 (0.32)
+🤖 PROPOSE   Attempt 1: model cites ['KB01', 'KB02', 'KB05'], self-confidence 1.00
+✅ VALIDATE  Proposed fix passed guardrails and scope check.
+🔁 VERIFY    Attempt 1: 15/15 tests passed
+📋 REPORT    FIXED (confidence 1.00)
+[...]
+Changes:
+  - Updated 'Hard' range in `get_range_for_difficulty` to return (1, 200).
+  - Removed string conversion in `check_guess` to compare guess and secret numerically.
+  - Corrected hint messages in `check_guess`: 'Too High' returns '📉 Go LOWER!' and 'Too Low' returns '📈 Go HIGHER!'.
+  - Fixed `update_score` to deduct 5 points for both 'Too High' and 'Too Low' regardless of attempt number.
+  - Fixed win score calculation in `update_score` to use `attempt_number - 1` so attempt 1 awards 100 points.
+```
+
+8/15 → 15/15. The scope check confirmed the model left `parse_guess` alone, since no failing test touched it. One honest caveat: only the top 3 documents are retrieved, so the scoring docs (KB03/KB04) weren't in the prompt and the scoring part of this fix came from the tests alone. See the [evaluation](#-testing--evaluation-summary).
+
+### 3. Guardrails: malicious input is refused before anything runs
+
+**Input:** [samples/malicious.py](samples/malicious.py), which looks like game logic but calls `os.system(...)`.
+
+```text
+$ python investigate.py samples/malicious.py --mode record --provider gemini
+
+=== Glitch Investigator run e91b4070  [gemini (gemini-3.6-flash) [recording]] ===
+🛡️  GUARD     Input rejected by guardrails: Blocked import 'os' (line 3).
+
+--- Result ---
+Status      : REFUSED
+Confidence  : 0.00
+Tests       : before = n/a | after = n/a
+Summary     : Input rejected by guardrails: Blocked import 'os' (line 3).
+[exit code 1]
+```
+
+The code was never executed and the model was never called. The same checks run on every AI-generated fix, so a model can't sneak an `import os` into its output either; that case is covered by the unit tests.
+
+### 4. No bugs: the agent doesn't call the model when there's nothing to fix
+
+```text
+$ python investigate.py samples/clean.py --mode record --provider gemini
+[...]
+🛡️  GUARD     Input passed static safety and contract checks.
+🧪 TEST      Baseline: 15/15 tests passed
+📋 REPORT    All tests already pass. No glitches found, so no AI call was made.
+[...]
+Status      : NO_BUGS
+```
+
+### In the app
+
+`python -m streamlit run app.py` opens the original game in the **🎮 Play** tab. The **🕵️ AI Investigator** tab lets you pick a sample or paste your own `logic_utils.py`, choose live or replay mode, and see the status, confidence, before and after test counts, the full agent trace, the diagnosis with its cited documents, and the diff, plus a button to download the fix. Nothing is applied automatically.
+
+---
+
+## 🧠 Design decisions
+
+| Decision | Why | Trade-off |
+|---|---|---|
+| **Tests are the judge, not the model.** A fix only counts as FIXED when the real pytest suite passes. | LLMs are confidently wrong sometimes. Running the tests turns "looks right" into "is right" for everything the tests cover. | Only as good as the tests. A bug with no test can slip through, which is why the scope check exists. |
+| **Retrieval query = failing tests (weighted 2×) + code** | My first version searched with the code alone, and KB07 (parsing) ranked in the top 3 for *every* sample because the code mentions everything. The failing tests are the actual evidence of what's broken. | Retrieval depends on good test names and assertions. |
+| **TF-IDF in plain Python instead of embeddings or a vector DB** | Nine short documents. TF-IDF is deterministic, explainable (scores are shown in the trace), fast, needs no extra service, and is easy to unit-test. | Misses synonyms. It wouldn't scale to thousands of documents without switching to embeddings. |
+| **Static AST guardrails before anything executes** | Running untrusted code to "see if it works" is exactly what an attacker wants. AST checks catch dangerous imports and calls without running a line. | A determined attacker could find gaps (this isn't a real sandbox). It's defence in depth for a teaching project, not a security boundary. |
+| **Scope check** (flag edits to functions no failing test covers) | Added after a live run where the model rewrote `parse_guess` unprompted. The tests still passed, but the change silently started accepting inputs like `"1e3"`. | It compares ASTs, so a harmless refactor (an if/else rewritten as a one-line conditional) is also flagged. It warns and lowers confidence instead of blocking. |
+| **Confidence = 60% tests + 20% model + 20% grounding, minus scope penalties, capped at 0.5 if any test fails** | Objective evidence should dominate. The model's own rating is weighted lightly because, as it turned out, it always says 1.00. | The weights are hand-picked, not learned. |
+| **Structured output (JSON schema via Pydantic)** | The agent needs the fixed file, the citations and the confidence as separate fields, not prose to scrape. | Ties the client code to providers that support schemas (both Gemini and Claude do). |
+| **Record and replay** | Anyone can reproduce the documented results with no key and no cost, and the README outputs are verifiable. | Replay only covers the bundled samples; new code needs a live key. |
+| **Provider-agnostic client (Gemini by default, Claude supported)** | I built for Claude first, but the key I had was for Gemini. Swapping providers was a ~60-line change because the agent only depends on a `propose_fix()` interface. | Two SDKs to maintain. |
+| **Human approval required, never auto-apply** | The agent edits code that runs a game other people play. A person should read the diff. | Slower than auto-fixing, deliberately. |
+
+---
+
+## 🧪 Testing & evaluation summary
+
+**Automated tests: 48/48 pass** (`python -m pytest`, ~20 s, no API key):
+- **15 original game-logic tests** from Module 1. These are also the oracle the agent uses to judge fixes.
+- **33 tests for the AI system**, using a scripted fake LLM so the agent's control flow is tested deterministically: the retriever ranks the right pattern first for 5 query types and returns nothing for an unrelated query; guardrails block 5 kinds of dangerous code; the agent retries with feedback after a bad fix, rejects an unsafe fix and tells the model why, skips the model when there are no bugs, reports PARTIAL for partial progress, survives LLM errors, lowers confidence for a hallucinated citation (`KB99`), and flags out-of-scope edits.
+
+**Live runs (gemini-3.6-flash): 7/7 samples ended in the expected status.** 4/4 buggy samples FIXED on the first attempt (15/15 tests after the fix, up from 8–13), 1 clean sample correctly reported NO_BUGS with zero model calls, and 2 guardrail samples REFUSED.
+
+**What didn't work at first, and what I changed:**
+- A partially fixed file (14/15 tests) scored **0.94 confidence**, which would have invited someone to trust broken code. I added a hard cap of 0.5 whenever any test fails.
+- The model rewrote a function nobody asked it to touch, and the tests couldn't see it. I added the scope check and a "keep the fix minimal" rule to the prompt.
+- Retrieval initially ranked the parsing doc in the top 3 for every input. I switched the query to weight the failing tests.
+- Top-3 retrieval misses some patterns when a file has four kinds of bugs at once (see sample 2).
+
+*A full evaluation, with a repeated-run consistency check and a retrieval-coverage experiment, is in [eval/](eval/) (Step 4, in progress).*
+
+---
+
+## 💭 Reflection
+
+The biggest lesson was that **the model was the easy part**. Gemini fixed every bug I gave it on the first try. The work that made the system trustworthy was everything around the model: running real tests instead of believing it, making it show which documents it relied on, refusing unsafe input, and making it honest about uncertainty. Two of my best design changes came from the system surprising me (a 0.94 confidence on a broken fix, and a passing fix that quietly changed untested code), and I only caught them because I tested the tester. Module 1 taught me that AI code can look defensive while being wrong. This project taught me how to build guardrails so the next person doesn't have to catch that by hand.
+
+The responsible-AI reflection (limitations, misuse, surprises and how I collaborated with AI) is in [model_card.md](model_card.md).
+
+---
+
+## 📁 Project structure
+
+```
+app.py                    Streamlit app: 🎮 Play tab + 🕵️ AI Investigator tab
+investigator_ui.py        UI for the AI Investigator tab
+investigate.py            CLI entry point
+logic_utils.py            The (fixed) game logic from Module 1
+glitch_ai/
+  agent.py                Plan, act and check loop + confidence scoring + JSONL trace
+  retriever.py            TF-IDF retriever
+  knowledge_base/         9 bug-pattern documents (KB01–KB09)
+  guardrails.py           AST safety, contract and scope checks
+  sandbox.py              Runs pytest on candidate code in a temp dir
+  llm.py                  Gemini / Claude clients + record and replay
+samples/                  Buggy, clean and malicious inputs
+recordings/               Recorded model responses for offline replay
+tests/                    15 game tests + 33 AI-system tests
+eval/                     Evaluation results and sample run logs
+diagrams/architecture.mmd System diagram (Mermaid source)
+docs/                     Original Module 1 write-up
+```
+
+🎥 **Video walkthrough (optional):** *add Loom link here*

@@ -23,7 +23,7 @@ def render_investigator() -> None:
 
     st.markdown(
         "Give the agent a version of `logic_utils.py`. It runs the test suite, retrieves "
-        "matching bug patterns from its knowledge base, asks Claude for a grounded fix, "
+        "matching bug patterns from its knowledge base, asks an LLM for a grounded fix, "
         "and re-runs the tests until they pass. **You** decide whether to apply the result."
     )
 
@@ -38,15 +38,16 @@ def render_investigator() -> None:
     else:
         code = st.text_area("Paste logic_utils.py", height=300)
 
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     mode = col1.selectbox("Model mode", ["auto", "live", "replay"],
-                          help="live calls Claude (needs ANTHROPIC_API_KEY). replay uses "
-                               "recorded Claude responses for the bundled samples.")
-    max_iters = col2.slider("Max fix attempts", 1, 5, 3)
+                          help="live calls the model API (needs a key in .env). replay uses "
+                               "recorded model responses for the bundled samples.")
+    provider = col2.selectbox("Provider", ["auto", "gemini", "claude"])
+    max_iters = col3.slider("Max fix attempts", 1, 5, 3)
 
     if st.button("Investigate 🔍", type="primary"):
         try:
-            client = make_client(mode)
+            client = make_client(mode, provider)
         except LLMError as exc:
             st.error(str(exc))
             return

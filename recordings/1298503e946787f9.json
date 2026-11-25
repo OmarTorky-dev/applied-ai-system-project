@@ -1,0 +1,16 @@
+{
+  "model": "gemini (gemini-3.6-flash)",
+  "proposal": {
+    "diagnosis": "1. `get_range_for_difficulty('Hard')` returned (1, 50), which is narrower than Normal (1, 100). Hard range should be (1, 200).\n2. `parse_guess` raised a `TypeError` when `raw` was `None` because it attempted `raw == \"\"` directly without checking for `None` or stripping whitespace before empty checks, and did not handle float strings like '7.0'.",
+    "cited_patterns": [
+      "KB05",
+      "KB07"
+    ],
+    "changes": [
+      "Updated `get_range_for_difficulty` so 'Hard' returns (1, 200).",
+      "Updated `parse_guess` to handle `None` and whitespace-only strings with ('Enter a guess.'), strip whitespace, and convert input via `int(float(raw))`."
+    ],
+    "fixed_code": "def get_range_for_difficulty(difficulty: str):\n    if difficulty == \"Easy\":\n        return 1, 20\n    if difficulty == \"Normal\":\n        return 1, 100\n    if difficulty == \"Hard\":\n        return 1, 200\n    return 1, 100\n\n\ndef parse_guess(raw: str):\n    if raw is None:\n        return False, None, \"Enter a guess.\"\n    raw = str(raw).strip()\n    if not raw:\n        return False, None, \"Enter a guess.\"\n    try:\n        value = int(float(raw))\n    except (ValueError, TypeError):\n        return False, None, \"That is not a number.\"\n    return True, value, None\n\n\ndef check_guess(guess, secret):\n    if guess == secret:\n        return \"Win\", \"\ud83c\udf89 Correct!\"\n    if guess > secret:\n        return \"Too High\", \"\ud83d\udcc9 Go LOWER!\"\n    return \"Too Low\", \"\ud83d\udcc8 Go HIGHER!\"\n\n\ndef update_score(current_score: int, outcome: str, attempt_number: int):\n    if outcome == \"Win\":\n        points = 100 - 10 * (attempt_number - 1)\n        if points < 10:\n            points = 10\n        return current_score + points\n    if outcome in (\"Too High\", \"Too Low\"):\n        return current_score - 5\n    return current_score\n",
+    "confidence": 1.0
+  }
+}

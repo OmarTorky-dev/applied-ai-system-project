@@ -80,3 +80,32 @@ def check_code(source: str) -> GuardrailResult:
             )
 
     return GuardrailResult(not errors, errors)
+
+
+def _function_bodies(source: str) -> dict[str, str]:
+    """Top-level function name -> normalized AST dump (ignores comments and formatting)."""
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return {}
+    bodies = {}
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef):
+            body = node.body
+            # Ignore docstring edits; they never change behaviour.
+            if body and isinstance(body[0], ast.Expr) and isinstance(getattr(body[0], "value", None), ast.Constant) \
+                    and isinstance(body[0].value.value, str):
+                body = body[1:]
+            bodies[node.name] = ast.dump(ast.Module(body=body, type_ignores=[]))
+    return bodies
+
+
+def changed_functions(before: str, after: str) -> set[str]:
+    """Names of top-level functions whose behaviour-relevant code differs."""
+    old, new = _function_bodies(before), _function_bodies(after)
+    return {name for name in old.keys() | new.keys() if old.get(name) != new.get(name)}
+
+
+def implicated_functions(failing_test_code: str) -> set[str]:
+    """Which public functions the failing tests actually call."""
+    return {name for name in REQUIRED_FUNCTIONS if f"{name}(" in failing_test_code}

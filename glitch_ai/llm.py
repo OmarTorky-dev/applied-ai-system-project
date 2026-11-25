@@ -1,7 +1,8 @@
 """LLM clients that turn a diagnosis prompt into a structured FixProposal.
 
+- GeminiClient   calls Google Gemini (needs GEMINI_API_KEY). Used for the documented runs.
 - ClaudeClient   calls the Claude API (needs ANTHROPIC_API_KEY).
-- RecordingClient wraps ClaudeClient and saves every response to recordings/.
+- RecordingClient wraps either client and saves every response to recordings/.
 - ReplayClient   answers from recordings/ with no network, so anyone can reproduce the
                  documented runs without an API key.
 """
@@ -12,6 +13,7 @@ import hashlib
 import json
 import logging
 import os
+import time
 from pathlib import Path
 from typing import Protocol
 
@@ -20,6 +22,7 @@ from pydantic import BaseModel, Field
 log = logging.getLogger("glitch_ai.llm")
 
 MODEL = "claude-opus-5-5"
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
 RECORDINGS_DIR = Path(__file__).resolve().parent.parent / "recordings"
 
 
@@ -94,10 +97,65 @@ class ClaudeClient:
         return response.parsed_output
 
 
+class GeminiClient:
+    """Google Gemini with JSON-schema structured output (response_schema=FixProposal)."""
+
+    RETRYABLE = {429, 500, 503, 504}
+
+    def __init__(self, model: str = GEMINI_MODEL, retries: int = 4):
+        from google import genai
+        from google.genai import errors
+
+        self._errors = errors
+        self._client = genai.Client(
+            api_key=os.environ["GEMINI_API_KEY"],
+            http_options={"timeout": 180_000},  # milliseconds
+        )
+        self.model = model
+        self.retries = retries
+        self.name = f"gemini ({model})"
+
+    def propose_fix(self, system: str, prompt: str) -> FixProposal:
+        config = {
+            "system_instruction": system,
+            "response_mime_type": "application/json",
+            "response_schema": FixProposal,
+            "temperature": 0.2,
+        }
+        for attempt in range(1, self.retries + 1):
+            try:
+                response = self._client.models.generate_content(
+                    model=self.model, contents=prompt, config=config)
+                break
+            except self._errors.APIError as exc:
+                if exc.code in self.RETRYABLE and attempt < self.retries:
+                    wait = 5 * 2 ** (attempt - 1)
+                    log.warning("gemini %s (attempt %d), retrying in %ds", exc.code, attempt, wait)
+                    time.sleep(wait)
+                    continue
+                if exc.code in (401, 403):
+                    raise LLMError("Invalid or unauthorized GEMINI_API_KEY.") from exc
+                raise LLMError(f"Gemini API error {exc.code}: {exc.message}") from exc
+            except Exception as exc:  # network failures, timeouts
+                raise LLMError(f"Could not reach the Gemini API: {exc}") from exc
+
+        usage = response.usage_metadata
+        log.info("gemini call: model=%s in=%s out=%s", self.model,
+                 getattr(usage, "prompt_token_count", "?"),
+                 getattr(usage, "candidates_token_count", "?"))
+        parsed = response.parsed
+        if parsed is None:
+            try:
+                parsed = FixProposal.model_validate_json(response.text or "")
+            except Exception as exc:
+                raise LLMError("The model did not return a valid FixProposal.") from exc
+        return parsed
+
+
 class RecordingClient:
     """Calls Claude and stores each (prompt -> proposal) pair for later replay."""
 
-    def __init__(self, inner: ClaudeClient, directory: Path = RECORDINGS_DIR):
+    def __init__(self, inner: LLMClient, directory: Path = RECORDINGS_DIR):
         self.inner = inner
         self.directory = directory
         self.name = inner.name + " [recording]"
@@ -107,7 +165,7 @@ class RecordingClient:
         self.directory.mkdir(exist_ok=True)
         path = self.directory / f"{prompt_key(system, prompt)}.json"
         path.write_text(
-            json.dumps({"model": MODEL, "proposal": proposal.model_dump()}, indent=2),
+            json.dumps({"model": self.inner.name, "proposal": proposal.model_dump()}, indent=2),
             encoding="utf-8",
         )
         return proposal
@@ -116,7 +174,7 @@ class RecordingClient:
 class ReplayClient:
     """Deterministic, offline: returns the recorded Claude response for an identical prompt."""
 
-    name = "replay (recorded Claude responses)"
+    name = "replay (recorded model responses)"
 
     def __init__(self, directory: Path = RECORDINGS_DIR):
         self.directory = directory
@@ -132,16 +190,36 @@ class ReplayClient:
         return FixProposal.model_validate(data["proposal"])
 
 
-def make_client(mode: str = "auto") -> LLMClient:
-    """mode: 'live', 'record', 'replay', or 'auto' (live if a key is set, else replay)."""
+def _live_client(provider: str) -> LLMClient:
+    if provider == "auto":
+        if os.environ.get("ANTHROPIC_API_KEY"):
+            provider = "claude"
+        elif os.environ.get("GEMINI_API_KEY"):
+            provider = "gemini"
+        else:
+            raise LLMError("No API key found. Set GEMINI_API_KEY or ANTHROPIC_API_KEY in .env, "
+                           "or use --mode replay.")
+    if provider == "gemini":
+        if not os.environ.get("GEMINI_API_KEY"):
+            raise LLMError("GEMINI_API_KEY is not set.")
+        return GeminiClient()
+    if provider == "claude":
+        if not os.environ.get("ANTHROPIC_API_KEY"):
+            raise LLMError("ANTHROPIC_API_KEY is not set.")
+        return ClaudeClient()
+    raise ValueError(f"Unknown provider: {provider}")
+
+
+def make_client(mode: str = "auto", provider: str = "auto") -> LLMClient:
+    """mode: 'live', 'record', 'replay', or 'auto' (live if any key is set, else replay).
+    provider: 'gemini', 'claude', or 'auto' (whichever key is present; Claude first)."""
+    has_key = bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("GEMINI_API_KEY"))
     if mode == "auto":
-        mode = "live" if os.environ.get("ANTHROPIC_API_KEY") else "replay"
+        mode = "live" if has_key else "replay"
     if mode == "replay":
         return ReplayClient()
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        raise LLMError("ANTHROPIC_API_KEY is not set. Add it to .env or use --mode replay.")
     if mode == "record":
-        return RecordingClient(ClaudeClient())
+        return RecordingClient(_live_client(provider))
     if mode == "live":
-        return ClaudeClient()
+        return _live_client(provider)
     raise ValueError(f"Unknown mode: {mode}")

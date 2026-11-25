@@ -1,0 +1,20 @@
+{
+  "model": "gemini (gemini-3.6-flash)",
+  "proposal": {
+    "diagnosis": "1. `get_range_for_difficulty` returned (1, 50) for 'Hard' instead of (1, 200), making Hard narrower than Normal.\n2. `check_guess` converted inputs to strings, causing lexicographical comparisons where '9' > '50', and returned swapped hint messages ('Go HIGHER!' for Too High).\n3. `update_score` added points on even attempt numbers for 'Too High' outcomes instead of deducting points, and computed win score using `(attempt_number + 1)` which penalized the first try.",
+    "cited_patterns": [
+      "KB01",
+      "KB02",
+      "KB05"
+    ],
+    "changes": [
+      "Updated 'Hard' range in `get_range_for_difficulty` to return (1, 200).",
+      "Removed string conversion in `check_guess` to compare guess and secret numerically.",
+      "Corrected hint messages in `check_guess`: 'Too High' returns '\ud83d\udcc9 Go LOWER!' and 'Too Low' returns '\ud83d\udcc8 Go HIGHER!'.",
+      "Fixed `update_score` to deduct 5 points for both 'Too High' and 'Too Low' regardless of attempt number.",
+      "Fixed win score calculation in `update_score` to use `attempt_number - 1` so attempt 1 awards 100 points."
+    ],
+    "fixed_code": "def get_range_for_difficulty(difficulty: str):\n    if difficulty == \"Easy\":\n        return 1, 20\n    if difficulty == \"Normal\":\n        return 1, 100\n    if difficulty == \"Hard\":\n        return 1, 200\n    return 1, 100\n\n\ndef parse_guess(raw: str):\n    if raw is None:\n        return False, None, \"Enter a guess.\"\n    if raw == \"\":\n        return False, None, \"Enter a guess.\"\n    try:\n        if \".\" in raw:\n            value = int(float(raw))\n        else:\n            value = int(raw)\n    except Exception:\n        return False, None, \"That is not a number.\"\n    return True, value, None\n\n\ndef check_guess(guess, secret):\n    if guess == secret:\n        return \"Win\", \"\ud83c\udf89 Correct!\"\n    if guess > secret:\n        return \"Too High\", \"\ud83d\udcc9 Go LOWER!\"\n    return \"Too Low\", \"\ud83d\udcc8 Go HIGHER!\"\n\n\ndef update_score(current_score: int, outcome: str, attempt_number: int):\n    if outcome == \"Win\":\n        points = 100 - 10 * (attempt_number - 1)\n        if points < 10:\n            points = 10\n        return current_score + points\n    if outcome == \"Too High\" or outcome == \"Too Low\":\n        return current_score - 5\n    return current_score\n",
+    "confidence": 1.0
+  }
+}

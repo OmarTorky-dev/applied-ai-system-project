@@ -2,7 +2,7 @@
 
 Examples:
     python investigate.py samples/lying_hints.py
-    python investigate.py samples/original_starter.py --mode live --out fixed_logic.py
+    python investigate.py samples/original_starter.py --mode live --provider gemini --out fixed.py
     python investigate.py samples/malicious.py
 """
 
@@ -53,8 +53,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Diagnose and fix bugs in a logic_utils.py file.")
     parser.add_argument("file", type=Path, help="Path to the logic_utils.py version to investigate")
     parser.add_argument("--mode", choices=["auto", "live", "record", "replay"], default="auto",
-                        help="live = call Claude; replay = use recorded responses (no API key); "
-                             "auto = live if ANTHROPIC_API_KEY is set, else replay")
+                        help="live = call the model; record = call it and save the response; "
+                             "replay = use recorded responses (no API key); "
+                             "auto = live if an API key is set, else replay")
+    parser.add_argument("--provider", choices=["auto", "gemini", "claude"], default="auto",
+                        help="Which model API to use in live/record mode (auto = whichever key is set)")
     parser.add_argument("--max-iters", type=int, default=3, help="Max fix-and-verify attempts")
     parser.add_argument("--out", type=Path, help="Write the proposed fix here (never overwrites the input)")
     parser.add_argument("--no-diff", action="store_true", help="Do not print the diff")
@@ -64,7 +67,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Error: {args.file} is not a file.", file=sys.stderr)
         return 2
     try:
-        client = make_client(args.mode)
+        client = make_client(args.mode, args.provider)
     except LLMError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 2

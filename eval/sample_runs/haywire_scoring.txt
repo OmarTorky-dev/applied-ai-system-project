@@ -1,0 +1,55 @@
+$ python investigate.py samples/haywire_scoring.py --mode record --provider gemini
+
+=== Glitch Investigator run 99bdb4a6  [gemini (gemini-3.6-flash) [recording]] ===
+🛡️  GUARD     Input passed static safety and contract checks.
+🧪 TEST      Baseline: 13/15 tests passed
+📚 RETRIEVE  Attempt 1: KB04 (0.43), KB03 (0.41), KB07 (0.30)
+🤖 PROPOSE   Attempt 1: model cites ['KB03', 'KB04'], self-confidence 1.00
+✅ VALIDATE  Proposed fix passed guardrails and scope check.
+🔁 VERIFY    Attempt 1: 15/15 tests passed
+📋 REPORT    FIXED (confidence 1.00)
+
+--- Result ---
+Status      : FIXED
+Confidence  : 1.00
+Tests       : before = 13/15 tests passed | after = 15/15 tests passed
+Grounded in : KB03, KB04
+Summary     : Fixed in 1 attempt(s): 15/15 tests passed. Review the diff before applying.
+
+Diagnosis:
+In update_score, win bonus calculation used (attempt_number + 1) instead of (attempt_number - 1), causing a first-try win to score 80 points instead of 100. Additionally, an attempt_number parity check caused 'Too High' outcomes on even attempts to add 5 points to the score instead of subtracting 5 points.
+
+Changes:
+  - Corrected win bonus calculation formula in update_score to use 100 - 10 * (attempt_number - 1).
+  - Removed parity check in update_score so both 'Too High' and 'Too Low' outcomes deduct 5 points regardless of attempt number.
+
+Proposed diff:
+--- logic_utils.py (submitted)
++++ logic_utils.py (proposed fix)
+@@ -1,7 +1,3 @@
+-# Sample glitch: the scoring bug from the original starter code.
+-# Wrong guesses add points on even attempts and the win bonus is off by two.
+-
+-
+ def get_range_for_difficulty(difficulty: str):
+     if difficulty == "Easy":
+         return 1, 20
+@@ -35,14 +31,10 @@
+ 
+ def update_score(current_score: int, outcome: str, attempt_number: int):
+     if outcome == "Win":
+-        points = 100 - 10 * (attempt_number + 1)
++        points = 100 - 10 * (attempt_number - 1)
+         if points < 10:
+             points = 10
+         return current_score + points
+-    if outcome == "Too High":
+-        if attempt_number % 2 == 0:
+-            return current_score + 5
+-        return current_score - 5
+-    if outcome == "Too Low":
++    if outcome == "Too High" or outcome == "Too Low":
+         return current_score - 5
+     return current_score
+
+[exit code 0]

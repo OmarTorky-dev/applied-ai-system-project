@@ -20,7 +20,7 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from .guardrails import check_code
+from .guardrails import changed_functions, check_code, implicated_functions
 from .llm import FixProposal, LLMClient, LLMError
 from .retriever import RetrievedDoc, Retriever, load_knowledge_base
 from .sandbox import TestRun, run_tests, test_sources
@@ -37,6 +37,8 @@ Rules:
   Cite the IDs of the documents you used (e.g. "KB01"). Only cite IDs that were provided.
 - Fix root causes. Never special-case test inputs, never delete or weaken behaviour to make
   a test pass, and never change a function's signature or return shape.
+- Keep the fix minimal: only change functions that the failing tests call. Leave every other
+  function exactly as it is, even if you would write it differently.
 - Keep the four public functions: get_range_for_difficulty(difficulty),
   parse_guess(raw), check_guess(guess, secret), update_score(current_score, outcome, attempt_number).
 - Do not import modules or touch files, the network or the OS. The module must stay pure.
@@ -61,6 +63,7 @@ class Report:
     diagnosis: str | None = None
     changes: list[str] = field(default_factory=list)
     cited_patterns: list[str] = field(default_factory=list)
+    out_of_scope: list[str] = field(default_factory=list)  # changed but not implicated by tests
     iterations: int = 0
     tests_before: str = ""
     tests_after: str = ""
@@ -82,13 +85,15 @@ class Report:
 
 
 def score_confidence(tests: TestRun, proposal: FixProposal | None,
-                     retrieved: list[RetrievedDoc], bad_citations: list[str]) -> float:
+                     retrieved: list[RetrievedDoc], bad_citations: list[str],
+                     out_of_scope: list[str] | tuple = ()) -> float:
     """Blend three independent signals into one 0-1 score.
 
     - 60%  test evidence: fraction of the suite that passes after the fix (objective)
     - 20%  model self-rating, clamped to [0, 1] (subjective, so weighted lightly)
     - 20%  grounding: the fix cites retrieved docs and no invented IDs
-    Any remaining test failure caps the score at 0.5.
+    Then: -0.1 for every function changed that no failing test implicates (untested edits),
+    and any remaining test failure caps the score at 0.5.
     """
     if tests.error:
         return 0.0
@@ -99,6 +104,7 @@ def score_confidence(tests: TestRun, proposal: FixProposal | None,
         valid = [c for c in proposal.cited_patterns if c in retrieved_ids]
         grounding = 1.0 if valid and not bad_citations else (0.5 if valid else 0.0)
     score = 0.6 * tests.pass_rate + 0.2 * model_conf + 0.2 * grounding
+    score -= 0.1 * len(out_of_scope)
     if not tests.all_passed:
         # A fix that still fails any test must never look trustworthy. Without this cap,
         # 14/15 passing plus a confident model scored 0.94 in testing.
@@ -218,7 +224,10 @@ class GlitchInvestigator:
         current_code, current_tests = code, baseline
         proposal: FixProposal | None = None
         rejection: str | None = None
-        best: tuple[FixProposal, TestRun, list[RetrievedDoc], list[str]] | None = None
+        best: tuple[FixProposal, TestRun, list[RetrievedDoc], list[str], list[str]] | None = None
+        # Functions the failing tests actually exercise; edits elsewhere are untested.
+        implicated = implicated_functions(
+            "\n".join(test_sources([f.test_name for f in baseline.failures]).values()))
 
         for attempt in range(1, self.max_iterations + 1):
             report.iterations = attempt
@@ -261,14 +270,24 @@ class GlitchInvestigator:
                            "Proposed fix rejected by guardrails: " + "; ".join(fix_guard.errors))
                 rejection = "; ".join(fix_guard.errors)
                 continue
-            self._step(report, "VALIDATE", "Proposed fix passed guardrails.")
+            for f in current_tests.failures:
+                implicated |= implicated_functions(
+                    "\n".join(test_sources([f.test_name]).values()))
+            out_of_scope = sorted(changed_functions(code, proposal.fixed_code) - implicated)
+            if out_of_scope:
+                self._step(report, "VALIDATE",
+                           f"Passed guardrails, but also changed {out_of_scope}, which no failing "
+                           "test covers (untested edit; flagged for review, confidence reduced).",
+                           out_of_scope=out_of_scope)
+            else:
+                self._step(report, "VALIDATE", "Proposed fix passed guardrails and scope check.")
 
             # 6. VERIFY
             after = run_tests(proposal.fixed_code)
             self._step(report, "VERIFY", f"Attempt {attempt}: {after.summary()}",
                        failing=[f.test_name for f in after.failures])
             if best is None or after.pass_rate > best[1].pass_rate:
-                best = (proposal, after, docs, bad_citations)
+                best = (proposal, after, docs, bad_citations, out_of_scope)
             if after.all_passed:
                 break
             if after.error is None:
@@ -282,17 +301,21 @@ class GlitchInvestigator:
             self._step(report, "REPORT", report.summary)
             return
 
-        proposal, after, docs, bad_citations = best
+        proposal, after, docs, bad_citations, out_of_scope = best
         report.fixed_code = proposal.fixed_code
         report.diagnosis = proposal.diagnosis
         report.changes = proposal.changes
         report.cited_patterns = proposal.cited_patterns
+        report.out_of_scope = out_of_scope
         report.tests_after = after.summary()
-        report.confidence = score_confidence(after, proposal, docs, bad_citations)
+        report.confidence = score_confidence(after, proposal, docs, bad_citations, out_of_scope)
         if after.all_passed:
             report.status = "FIXED"
             report.summary = (f"Fixed in {report.iterations} attempt(s): {after.summary()}. "
                               "Review the diff before applying.")
+            if out_of_scope:
+                report.summary += (f" Note: it also changed {', '.join(out_of_scope)}, "
+                                   "which no failing test covers; check that edit by hand.")
         elif after.passed > baseline.passed:
             report.status = "PARTIAL"
             report.summary = (f"Improved from {baseline.summary()} to {after.summary()}; "
