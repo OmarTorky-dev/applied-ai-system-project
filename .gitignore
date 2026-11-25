@@ -41,3 +41,7 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Glitch Investigator runtime logs
+logs/
+!.env.example

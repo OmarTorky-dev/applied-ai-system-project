@@ -5,6 +5,9 @@ import streamlit as st
 # mode) so it can be unit-tested without running Streamlit.
 from logic_utils import check_guess, get_range_for_difficulty, parse_guess, update_score
 
+# NEW (final project): the AI agent that diagnoses and fixes broken versions of logic_utils.py.
+from investigator_ui import render_investigator
+
 
 def start_new_game(low: int, high: int):
     """Reset every piece of per-game state."""
@@ -22,7 +25,7 @@ def start_new_game(low: int, high: int):
 st.set_page_config(page_title="Glitchy Guesser", page_icon="🎮")
 
 st.title("🎮 Game Glitch Investigator")
-st.caption("An AI-generated guessing game. Something is off.")
+st.caption("A number-guessing game, plus an AI agent that finds and fixes its glitches.")
 
 st.sidebar.header("Settings")
 
@@ -52,86 +55,92 @@ if st.session_state.get("difficulty") != difficulty:
     st.session_state.difficulty = difficulty
     start_new_game(low, high)
 
-st.subheader("Make a guess")
+tab_play, tab_ai = st.tabs(["🎮 Play", "🕵️ AI Investigator"])
 
-# FIX: The banner used to render *before* the guess was processed, so "Attempts left"
-# was always one guess behind, and it hard-coded "1 and 100". A placeholder is
-# filled in at the end of the script with the up-to-date count and the real range.
-status_banner = st.empty()
+with tab_play:
+    st.subheader("Make a guess")
 
-debug_panel = st.expander("Developer Debug Info")
+    # FIX: The banner used to render *before* the guess was processed, so "Attempts left"
+    # was always one guess behind, and it hard-coded "1 and 100". A placeholder is
+    # filled in at the end of the script with the up-to-date count and the real range.
+    status_banner = st.empty()
 
-raw_guess = st.text_input(
-    "Enter your guess:",
-    key=f"guess_input_{difficulty}"
-)
+    debug_panel = st.expander("Developer Debug Info")
 
-col1, col2, col3 = st.columns(3)
-with col1:
-    submit = st.button("Submit Guess 🚀")
-with col2:
-    new_game = st.button("New Game 🔁")
-with col3:
-    show_hint = st.checkbox("Show hint", value=True)
+    raw_guess = st.text_input(
+        "Enter your guess:",
+        key=f"guess_input_{difficulty}"
+    )
 
-if new_game:
-    start_new_game(low, high)
-    st.success("New game started.")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        submit = st.button("Submit Guess 🚀")
+    with col2:
+        new_game = st.button("New Game 🔁")
+    with col3:
+        show_hint = st.checkbox("Show hint", value=True)
 
-if st.session_state.status != "playing":
-    if st.session_state.status == "won":
-        st.success("You already won. Start a new game to play again.")
-    else:
-        st.error("Game over. Start a new game to try again.")
-elif submit:
-    ok, guess_int, err = parse_guess(raw_guess)
+    if new_game:
+        start_new_game(low, high)
+        st.success("New game started.")
 
-    if not ok:
-        # FIX: Invalid input no longer uses up an attempt or goes into the history.
-        st.error(err)
-    else:
-        st.session_state.attempts += 1
-        st.session_state.history.append(guess_int)
+    if st.session_state.status != "playing":
+        if st.session_state.status == "won":
+            st.success("You already won. Start a new game to play again.")
+        else:
+            st.error("Game over. Start a new game to try again.")
+    elif submit:
+        ok, guess_int, err = parse_guess(raw_guess)
 
-        # FIX: The secret used to become a str on every even attempt, which forced
-        # check_guess into alphabetical comparison. It now always stays an int.
-        outcome, message = check_guess(guess_int, st.session_state.secret)
+        if not ok:
+            # FIX: Invalid input no longer uses up an attempt or goes into the history.
+            st.error(err)
+        else:
+            st.session_state.attempts += 1
+            st.session_state.history.append(guess_int)
 
-        if show_hint:
-            st.warning(message)
+            # FIX: The secret used to become a str on every even attempt, which forced
+            # check_guess into alphabetical comparison. It now always stays an int.
+            outcome, message = check_guess(guess_int, st.session_state.secret)
 
-        st.session_state.score = update_score(
-            current_score=st.session_state.score,
-            outcome=outcome,
-            attempt_number=st.session_state.attempts,
-        )
+            if show_hint:
+                st.warning(message)
 
-        if outcome == "Win":
-            st.balloons()
-            st.session_state.status = "won"
-            st.success(
-                f"You won! The secret was {st.session_state.secret}. "
-                f"Final score: {st.session_state.score}"
-            )
-        elif st.session_state.attempts >= attempt_limit:
-            st.session_state.status = "lost"
-            st.error(
-                f"Out of attempts! "
-                f"The secret was {st.session_state.secret}. "
-                f"Score: {st.session_state.score}"
+            st.session_state.score = update_score(
+                current_score=st.session_state.score,
+                outcome=outcome,
+                attempt_number=st.session_state.attempts,
             )
 
-status_banner.info(
-    f"Guess a number between {low} and {high}. "
-    f"Attempts left: {attempt_limit - st.session_state.attempts}"
-)
+            if outcome == "Win":
+                st.balloons()
+                st.session_state.status = "won"
+                st.success(
+                    f"You won! The secret was {st.session_state.secret}. "
+                    f"Final score: {st.session_state.score}"
+                )
+            elif st.session_state.attempts >= attempt_limit:
+                st.session_state.status = "lost"
+                st.error(
+                    f"Out of attempts! "
+                    f"The secret was {st.session_state.secret}. "
+                    f"Score: {st.session_state.score}"
+                )
 
-with debug_panel:
-    st.write("Secret:", st.session_state.secret)
-    st.write("Attempts:", st.session_state.attempts)
-    st.write("Score:", st.session_state.score)
-    st.write("Difficulty:", difficulty)
-    st.write("History:", st.session_state.history)
+    status_banner.info(
+        f"Guess a number between {low} and {high}. "
+        f"Attempts left: {attempt_limit - st.session_state.attempts}"
+    )
+
+    with debug_panel:
+        st.write("Secret:", st.session_state.secret)
+        st.write("Attempts:", st.session_state.attempts)
+        st.write("Score:", st.session_state.score)
+        st.write("Difficulty:", difficulty)
+        st.write("History:", st.session_state.history)
+
+with tab_ai:
+    render_investigator()
 
 st.divider()
 st.caption("Built by an AI that claims this code is production-ready.")
